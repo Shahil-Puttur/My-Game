@@ -47,12 +47,13 @@
     <canvas id="gameCanvas"></canvas>
 
     <div id="ui-layer">
-        <div id="btn-swap" onpointerdown="swapCharacter(event)">🦊 Swap</div>
+        <!-- Removed inline HTML events. We handle this in JS for Mobile perfection -->
+        <div id="btn-swap">🦊 Swap</div>
         <div id="hud"><div class="score-board">09:45 | Survive!</div></div>
         <div id="joystick-zone"><div id="joystick-knob"></div></div>
         <div id="action-zone">
-            <div class="action-btn" id="btn-search" onpointerdown="triggerSearch(event)">🔎</div>
-            <div class="action-btn" id="btn-shoot" onpointerdown="triggerShoot(event)">🔫</div>
+            <div class="action-btn" id="btn-search">🔎</div>
+            <div class="action-btn" id="btn-shoot">🔫</div>
         </div>
         <div id="alert-text">Nothing here...</div>
     </div>
@@ -66,6 +67,7 @@
     // --- 1. STRICT AAA ASSET PRELOADER ---
     const images = {}; 
     let assetsLoaded = 0;
+    let gameStarted = false;
     
     const assetList = { 
         panda: 'panda.png', fox: 'fox.png',
@@ -81,13 +83,15 @@
     const totalAssets = Object.keys(assetList).length + 1; // +1 for Audio
 
     function assetCheck() {
+        if(gameStarted) return;
         assetsLoaded++;
         let percent = Math.floor((assetsLoaded / totalAssets) * 100);
         document.getElementById('loading-bar').style.width = percent + "%";
         document.getElementById('loading-text').innerText = `Loading: ${percent}%`;
 
         // Strict Check: ONLY start when exactly 100% of files are in memory
-        if (assetsLoaded === totalAssets) {
+        if (assetsLoaded >= totalAssets) {
+            gameStarted = true;
             setTimeout(() => {
                 document.getElementById('loading').style.opacity = 0;
                 setTimeout(() => {
@@ -98,17 +102,21 @@
         }
     }
 
-    // Load Audio safely
+    // Audio Load
     const shootAudio = new Audio('shoot.mp3');
     shootAudio.oncanplaythrough = assetCheck;
-    shootAudio.onerror = assetCheck; // Prevents loader from freezing if audio fails
+    shootAudio.onerror = assetCheck; 
 
-    // Load all Images strictly
+    // Image Load (Avoids browser cache double-firing)
     for (let key in assetList) {
-        images[key] = new Image(); 
-        images[key].onload = assetCheck;
-        images[key].onerror = () => { console.error(`Missing File: ${assetList[key]}`); assetCheck(); };
-        images[key].src = assetList[key];
+        let img = new Image(); 
+        let isLoaded = false;
+        const markLoaded = () => { if(!isLoaded) { isLoaded = true; assetCheck(); } };
+        img.onload = markLoaded;
+        img.onerror = markLoaded; 
+        img.src = assetList[key];
+        if(img.complete) markLoaded(); // Fix for instantly cached images
+        images[key] = img;
     }
 
     // --- GAME CONSTANTS ---
@@ -120,55 +128,93 @@
     const destructibles = ['safe', 'barrel', 'crate', 'sack', 'log'];
     const hidingSpots = ['bush', 'grass', 'shroom', 'fire'];
 
-    // --- CONTROLS ---
+    // --- MOBILE BULLETPROOF CONTROLS ---
     let input = { x: 0, y: 0 }; let keys = {};
     window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true); 
     window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
     
     const joystickZone = document.getElementById('joystick-zone'); 
     const joystickKnob = document.getElementById('joystick-knob');
-    let isDragging = false, joystickCenter = { x: 0, y: 0 };
+    let isDragging = false, joystickCenter = { x: 0, y: 0 }, touchId = null;
 
-    joystickZone.addEventListener('pointerdown', handlePointerDown);
-    window.addEventListener('pointermove', handlePointerMove);
-    window.addEventListener('pointerup', handlePointerUp);
+    // Mobile specific touch events
+    joystickZone.addEventListener('touchstart', (e) => {
+        e.preventDefault(); // Prevents screen drag
+        if (isDragging) return;
+        let touch = e.changedTouches[0];
+        touchId = touch.identifier; // Lock onto this specific finger
+        isDragging = true;
+        let rect = joystickZone.getBoundingClientRect();
+        joystickCenter = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+        updateJoystick(touch.clientX, touch.clientY);
+    }, {passive: false});
 
-    function handlePointerDown(e) { 
-        if (e.target !== joystickZone && e.target !== joystickKnob) return; 
-        isDragging = true; 
-        let rect = joystickZone.getBoundingClientRect(); 
-        joystickCenter = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }; 
-        updateJoystick(e); 
-    }
-    function handlePointerMove(e) { if (!isDragging) return; e.preventDefault(); updateJoystick(e); }
-    function handlePointerUp() { isDragging = false; joystickKnob.style.transform = `translate(-50%, -50%)`; input = { x: 0, y: 0 }; }
-    function updateJoystick(e) { 
-        let dx = e.clientX - joystickCenter.x; let dy = e.clientY - joystickCenter.y; 
+    window.addEventListener('touchmove', (e) => {
+        if (!isDragging) return;
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            if (e.changedTouches[i].identifier === touchId) {
+                updateJoystick(e.changedTouches[i].clientX, e.changedTouches[i].clientY);
+                break;
+            }
+        }
+    }, {passive: false});
+
+    window.addEventListener('touchend', (e) => {
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            if (e.changedTouches[i].identifier === touchId) {
+                isDragging = false; touchId = null;
+                joystickKnob.style.transform = `translate(-50%, -50%)`; input = { x: 0, y: 0 };
+                break;
+            }
+        }
+    });
+
+    // PC Mouse Fallback
+    joystickZone.addEventListener('mousedown', (e) => {
+        isDragging = true; let rect = joystickZone.getBoundingClientRect();
+        joystickCenter = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+        updateJoystick(e.clientX, e.clientY);
+    });
+    window.addEventListener('mousemove', (e) => { if (isDragging) updateJoystick(e.clientX, e.clientY); });
+    window.addEventListener('mouseup', () => { isDragging = false; joystickKnob.style.transform = `translate(-50%, -50%)`; input = { x: 0, y: 0 }; });
+
+    function updateJoystick(clientX, clientY) { 
+        let dx = clientX - joystickCenter.x; let dy = clientY - joystickCenter.y; 
         let dist = Math.sqrt(dx * dx + dy * dy); let maxRad = 45; 
         if (dist > maxRad) { dx = (dx / dist) * maxRad; dy = (dy / dist) * maxRad; } 
         joystickKnob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`; 
         input.x = dx / maxRad; input.y = dy / maxRad; 
     }
 
-    // --- PRO MAP GENERATOR ---
+    // --- PRO MAP GENERATOR (WITH SPAWN SAFE ZONE) ---
     let worldObjects = []; 
+    let centerTile = Math.floor(MAP_SIZE / 2);
+
     for (let r = 0; r < MAP_SIZE; r++) {
         for (let c = 0; c < MAP_SIZE; c++) {
             let x = c * TILE_SIZE; let y = r * TILE_SIZE;
+            
+            // Map Borders
             if (r === 0 || r === MAP_SIZE - 1 || c === 0 || c === MAP_SIZE - 1) { 
                 worldObjects.push({ type: Math.random() > 0.5 ? 'tree' : 'pillar', x: x, y: y, size: TILE_SIZE, isSolid: true, isHidingSpot: false });
-            } else {
-                let rand = Math.random();
-                if (rand > 0.96) {
-                    let randomItem = destructibles[Math.floor(Math.random() * destructibles.length)];
-                    worldObjects.push({ type: randomItem, x: x, y: y, size: TILE_SIZE - 15, isSolid: true, isHidingSpot: false, hasMoney: true });
-                } else if (rand > 0.90) {
-                    let randomItem = hidingSpots[Math.floor(Math.random() * hidingSpots.length)];
-                    worldObjects.push({ type: randomItem, x: x, y: y, size: TILE_SIZE, isSolid: false, isHidingSpot: true, hasMoney: Math.random() > 0.5 }); 
-                } else if (rand > 0.80) {
-                    let randomItem = solidCover[Math.floor(Math.random() * solidCover.length)];
-                    worldObjects.push({ type: randomItem, x: x, y: y, size: TILE_SIZE, isSolid: true, isHidingSpot: false, hasMoney: false });
-                }
+                continue;
+            } 
+            
+            // SPAWN SAFE ZONE: Prevent objects from spawning in the middle 3x3 tiles
+            if (Math.abs(c - centerTile) <= 1 && Math.abs(r - centerTile) <= 1) {
+                continue; 
+            }
+
+            let rand = Math.random();
+            if (rand > 0.96) {
+                let randomItem = destructibles[Math.floor(Math.random() * destructibles.length)];
+                worldObjects.push({ type: randomItem, x: x, y: y, size: TILE_SIZE - 15, isSolid: true, isHidingSpot: false, hasMoney: true });
+            } else if (rand > 0.90) {
+                let randomItem = hidingSpots[Math.floor(Math.random() * hidingSpots.length)];
+                worldObjects.push({ type: randomItem, x: x, y: y, size: TILE_SIZE, isSolid: false, isHidingSpot: true, hasMoney: Math.random() > 0.5 }); 
+            } else if (rand > 0.80) {
+                let randomItem = solidCover[Math.floor(Math.random() * solidCover.length)];
+                worldObjects.push({ type: randomItem, x: x, y: y, size: TILE_SIZE, isSolid: true, isHidingSpot: false, hasMoney: false });
             }
         }
     }
@@ -179,16 +225,9 @@
             this.x = x; this.y = y; this.width = 100; this.height = 100; this.speed = 6;
             this.spriteName = spriteName; 
             
-            // Animation Variables
-            this.frameX = 0; 
-            this.frameY = 0; 
-            this.gameFrame = 0; 
-            this.staggerFrames = 5; // Lower number = faster animation
-            
-            this.facingRight = true; 
-            this.isMoving = false;
-            this.aimDir = { x: 1, y: 0 }; 
-            this.isAiming = false;
+            this.frameX = 0; this.frameY = 0; this.gameFrame = 0; this.staggerFrames = 5; 
+            this.facingRight = true; this.isMoving = false;
+            this.aimDir = { x: 1, y: 0 }; this.isAiming = false;
         }
 
         update() {
@@ -210,23 +249,21 @@
                     if (dx > 0) this.facingRight = true; 
                     if (dx < 0) this.facingRight = false;
                 } else if (dy > 0) {
-                    this.frameY = 0; // Front Profile (Walking towards camera)
+                    this.frameY = 0; // Front Profile
                 } else if (dy < 0) {
-                    this.frameY = 1; // Back Profile (Walking away)
+                    this.frameY = 1; // Back Profile
                 }
 
-                // Animate through the 4 columns
                 if(!this.isAiming) {
                     this.gameFrame++;
                     if (this.gameFrame % this.staggerFrames === 0) { 
-                        this.frameX = (this.frameX + 1) % 4; // Loops 0, 1, 2, 3
+                        this.frameX = (this.frameX + 1) % 4; // Loops 0 to 3
                     }
                 } else {
-                    this.frameX = 0; // Stand still while aiming
+                    this.frameX = 0; 
                 }
             } else { 
-                this.frameX = 0; // Return to idle frame
-                this.gameFrame = 0; 
+                this.frameX = 0; this.gameFrame = 0; 
             }
 
             let moveSpeed = this.isAiming ? this.speed * 0.5 : this.speed; 
@@ -249,34 +286,17 @@
         }
 
         draw(ctx) {
-            // Shadow
             ctx.fillStyle = "rgba(0,0,0,0.3)"; ctx.beginPath(); 
             ctx.ellipse(this.x, this.y + 35, 30, 12, 0, 0, Math.PI * 2); ctx.fill();
             
             let img = images[this.spriteName];
             if (img && img.complete && img.naturalWidth > 0) {
-                
-                // Calculate exactly 1/4th width and 1/3rd height of your perfect sprite sheet!
-                let spriteW = img.width / 4; 
-                let spriteH = img.height / 3;
+                let spriteW = img.width / 4; let spriteH = img.height / 3;
 
-                ctx.save(); 
-                ctx.translate(this.x, this.y);
-                
-                // If facing left AND using the side profile (Row 2), flip the canvas horizontally
-                if (!this.facingRight && this.frameY === 2) { 
-                    ctx.scale(-1, 1); 
-                } 
+                ctx.save(); ctx.translate(this.x, this.y);
+                if (!this.facingRight && this.frameY === 2) ctx.scale(-1, 1); 
 
-                // Draw the perfectly sliced square
-                ctx.drawImage(
-                    img, 
-                    this.frameX * spriteW, this.frameY * spriteH, // Source X, Y (Crop start)
-                    spriteW, spriteH,                             // Source Width, Height (Crop size)
-                    -this.width / 2, -this.height / 2,            // Destination X, Y (Canvas draw position)
-                    this.width, this.height                       // Destination Width, Height (Canvas size)
-                );
-                
+                ctx.drawImage(img, this.frameX * spriteW, this.frameY * spriteH, spriteW, spriteH, -this.width / 2, -this.height / 2, this.width, this.height);
                 ctx.restore();
             }
         }
@@ -284,15 +304,21 @@
 
     const player = new Player(MAP_SIZE * TILE_SIZE / 2, MAP_SIZE * TILE_SIZE / 2, 'panda');
 
-    // --- UI ACTIONS & AUDIO ---
+    // --- BULLETPROOF MOBILE UI ACTIONS ---
+    function bindButton(id, callback) {
+        const btn = document.getElementById(id);
+        const handler = (e) => { e.preventDefault(); callback(); };
+        btn.addEventListener('touchstart', handler, {passive: false});
+        btn.addEventListener('mousedown', handler);
+    }
+
     function showAlert(text, color) {
         const alertBox = document.getElementById('alert-text');
         alertBox.innerText = text; alertBox.style.color = color; alertBox.style.opacity = 1; alertBox.style.top = "35%";
         setTimeout(() => { alertBox.style.opacity = 0; alertBox.style.top = "40%"; }, 1200);
     }
 
-    function swapCharacter(e) {
-        e.preventDefault(); 
+    bindButton('btn-swap', () => {
         if(player.spriteName === 'panda') {
             player.spriteName = 'fox';
             document.getElementById('btn-swap').innerText = "🐼 Swap";
@@ -306,10 +332,9 @@
             document.getElementById('btn-swap').style.borderColor = "#8e44ad";
             showAlert("Swapped to PANDA!", "#ecf0f1");
         }
-    }
+    });
 
-    function triggerSearch(e) {
-        e.preventDefault(); 
+    bindButton('btn-search', () => {
         let found = false;
         for (let obj of worldObjects) {
             let objCenterX = obj.x + obj.size/2; let objCenterY = obj.y + obj.size/2;
@@ -321,12 +346,10 @@
             }
         }
         if (!found) showAlert("Nothing here!", "#f39c12");
-    }
+    });
 
-    function triggerShoot(e) { 
-        e.preventDefault(); 
+    bindButton('btn-shoot', () => {
         const btn = document.getElementById('btn-shoot');
-
         if (!player.isAiming) {
             player.isAiming = true; btn.classList.add("aiming-mode");
         } else {
@@ -334,8 +357,7 @@
             
             if (shootAudio.readyState >= 2) {
                 let sfx = shootAudio.cloneNode();
-                sfx.volume = 0.6;
-                sfx.play().catch(() => {});
+                sfx.volume = 0.6; sfx.play().catch(() => {});
             }
 
             let gunX = player.x + (player.facingRight ? 20 : -20); let gunY = player.y + 10;
@@ -366,7 +388,7 @@
                 }
             }
         }
-    }
+    });
 
     // --- RENDER LOOP ---
     function gameLoop() {
@@ -391,14 +413,9 @@
             if(item.type === 'player') item.obj.draw(ctx);
             else {
                 let wObj = item.obj; 
-                
                 if(!wObj.isHidingSpot) { 
-                    ctx.fillStyle = "rgba(0,0,0,0.3)"; 
-                    ctx.beginPath(); 
-                    ctx.ellipse(wObj.x + wObj.size/2, wObj.y + wObj.size - 10, wObj.size*0.4, wObj.size*0.15, 0, 0, Math.PI * 2); 
-                    ctx.fill(); 
+                    ctx.fillStyle = "rgba(0,0,0,0.3)"; ctx.beginPath(); ctx.ellipse(wObj.x + wObj.size/2, wObj.y + wObj.size - 10, wObj.size*0.4, wObj.size*0.15, 0, 0, Math.PI * 2); ctx.fill(); 
                 }
-
                 if(images[wObj.type] && images[wObj.type].complete && images[wObj.type].naturalWidth > 0) {
                     let drawSize = wObj.size; let drawX = wObj.x; let drawY = wObj.y;
                     if(['tree', 'stall', 'tent', 'statue'].includes(wObj.type)) { drawSize = wObj.size * 1.3; drawX = wObj.x - 10; drawY = wObj.y - 20; }
