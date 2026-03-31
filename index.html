@@ -3,16 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Hide & Hunt - Tactical Laser Update</title>
+    <title>Hide & Hunt - Roster Update</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; touch-action: none; user-select: none; -webkit-tap-highlight-color: transparent; }
         body { background-color: #2b2b2b; overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         canvas { display: block; image-rendering: pixelated; } 
         
         #ui-layer { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; }
+        
+        /* Top HUD */
         #hud { position: absolute; top: 15px; width: 100%; text-align: center; pointer-events: auto; }
         .score-board { background: #1a1a1a; color: white; padding: 12px 25px; border-radius: 30px; border: 4px solid #f39c12; display: inline-block; font-weight: 900; font-size: 22px; box-shadow: 0 6px 0 #000; text-transform: uppercase; letter-spacing: 1px;}
         
+        /* NEW: Character Swap Button */
+        #btn-swap { position: absolute; top: 15px; left: 15px; background: #9b59b6; border: 3px solid #8e44ad; color: white; padding: 10px 15px; border-radius: 15px; font-weight: bold; font-size: 18px; pointer-events: auto; cursor: pointer; box-shadow: 0 4px 0 #732d91; transition: transform 0.1s;}
+        #btn-swap:active { transform: translateY(4px); box-shadow: none; }
+
+        /* Controls */
         #joystick-zone { position: absolute; bottom: 30px; left: 30px; width: 140px; height: 140px; background: rgba(0, 0, 0, 0.2); border-radius: 50%; pointer-events: auto; border: 3px solid rgba(255,255,255,0.1); backdrop-filter: blur(4px); }
         #joystick-knob { position: absolute; top: 50%; left: 50%; width: 50px; height: 50px; background: rgba(255, 255, 255, 0.9); border-radius: 50%; transform: translate(-50%, -50%); box-shadow: 0 4px 10px rgba(0,0,0,0.5); pointer-events: none;}
         
@@ -21,25 +28,29 @@
         .action-btn:active { transform: scale(0.9) translateY(4px); box-shadow: inset 0 -2px 0 rgba(0,0,0,0.2), 0 2px 5px rgba(0,0,0,0.4); }
         
         #btn-search { background-color: #2ecc71; }
-        /* Gun button glows when aiming */
         #btn-shoot { background-color: #e74c3c; transition: all 0.2s; }
         .aiming-mode { background-color: #c0392b !important; border-color: #f1c40f !important; box-shadow: 0 0 20px #e74c3c, inset 0 -5px 0 rgba(0,0,0,0.2) !important; transform: scale(1.1); }
 
         #alert-text { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); color: #f1c40f; font-size: 35px; font-weight: 900; -webkit-text-stroke: 1.5px black; text-shadow: 0px 5px 0 #000; opacity: 0; transition: opacity 0.2s, top 0.2s; pointer-events: none; z-index: 50;}
         
         #loading { position: absolute; top:0; left:0; width: 100vw; height: 100vh; background: #2ecc71; color: white; display: flex; justify-content: center; align-items: center; font-size: 40px; font-weight: 900; z-index: 100; transition: opacity 0.5s; flex-direction: column;}
+        #loading p { font-size: 20px; font-weight: normal; margin-top:10px;}
     </style>
 </head>
 <body>
 
-    <div id="loading"><div>LOADING ASSETS...</div></div>
+    <div id="loading">
+        <div>LOADING ASSETS...</div>
+        <p>Make sure panda.png and fox.png are uploaded!</p>
+    </div>
     <canvas id="gameCanvas"></canvas>
 
     <div id="ui-layer">
+        <div id="btn-swap" onclick="swapCharacter(event)" ontouchstart="swapCharacter(event)">🦊 Swap</div>
+        
         <div id="hud"><div class="score-board">09:45 | Find Panda!</div></div>
         <div id="joystick-zone"><div id="joystick-knob"></div></div>
         <div id="action-zone">
-            <!-- Notice the event(e) passed to prevent movement freezing -->
             <div class="action-btn" id="btn-search" onmousedown="triggerSearch(event)" ontouchstart="triggerSearch(event)">🔎</div>
             <div class="action-btn" id="btn-shoot" onmousedown="triggerShoot(event)" ontouchstart="triggerShoot(event)">🔫</div>
         </div>
@@ -47,20 +58,22 @@
     </div>
 
 <script>
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
-    
+    const canvas = document.getElementById('gameCanvas'); const ctx = canvas.getContext('2d');
     function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
     window.addEventListener('resize', resize); resize();
 
-    // --- ASSETS ---
+    // --- ASSETS (NOW INCLUDES FOX) ---
     const images = {}; let assetsLoaded = 0;
-    const assetList = { tree: 'tree.png', chest: 'chest.png', house: 'house.png', rock: 'rock.png', bush: 'bush.png', panda: 'panda.png' };
+    const assetList = { 
+        tree: 'tree.png', chest: 'chest.png', house: 'house.png', 
+        rock: 'rock.png', bush: 'bush.png', 
+        panda: 'panda.png', 
+        fox: 'fox.png' // <--- FOX ADDED HERE!
+    };
     const totalAssets = Object.keys(assetList).length;
 
     for (let key in assetList) {
-        images[key] = new Image();
-        images[key].src = assetList[key];
+        images[key] = new Image(); images[key].src = assetList[key];
         images[key].onload = () => {
             assetsLoaded++;
             if (assetsLoaded === totalAssets) {
@@ -69,15 +82,15 @@
                 gameLoop();
             }
         };
-        images[key].onerror = () => { assetsLoaded++; };
+        images[key].onerror = () => { assetsLoaded++; console.log("Missing: " + key); };
     }
 
-    // --- GAME CONSTANTS & FX ---
+    // --- GAME CONSTANTS ---
     const TILE_SIZE = 80; const MAP_SIZE = 25; 
     let camera = { x: 0, y: 0, shakeTime: 0, shakeIntensity: 0 }; 
-    let explosions = []; // Stores blast effects
+    let explosions = []; 
 
-    // Controls
+    // --- CONTROLS ---
     let input = { x: 0, y: 0 }; let keys = {};
     window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
     window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
@@ -96,8 +109,7 @@
         let clientX = e.touches ? e.touches[0].clientX : e.clientX; let clientY = e.touches ? e.touches[0].clientY : e.clientY; 
         let dx = clientX - joystickCenter.x; let dy = clientY - joystickCenter.y; let dist = Math.sqrt(dx * dx + dy * dy); let maxRad = 45; 
         if (dist > maxRad) { dx = (dx / dist) * maxRad; dy = (dy / dist) * maxRad; } 
-        joystickKnob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`; 
-        input.x = dx / maxRad; input.y = dy / maxRad; 
+        joystickKnob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`; input.x = dx / maxRad; input.y = dy / maxRad; 
     }
 
     // --- MAP GENERATOR ---
@@ -116,65 +128,45 @@
         }
     }
 
-    // --- PLAYER CLASS ---
+    // --- DYNAMIC PLAYER CLASS ---
     class Player {
-        constructor(x, y) {
+        constructor(x, y, spriteName) {
             this.x = x; this.y = y;
             this.width = 80; this.height = 80; this.speed = 6;
+            
+            // NEW: DYNAMIC SPRITE!
+            this.spriteName = spriteName; // 'panda' or 'fox'
+
             this.facingRight = true; this.isMoving = false;
             this.frameX = 0; this.frameY = 0; this.gameFrame = 0; this.staggerFrames = 6;
-            
-            // TACTICAL MECHANICS
-            this.aimDir = { x: 1, y: 0 }; 
-            this.isAiming = false;
+            this.aimDir = { x: 1, y: 0 }; this.isAiming = false;
         }
 
         update() {
-            // MOVEMENT FIX: Smoothly handle both Keyboard and Joystick without overriding
             let dx = 0; let dy = 0;
             if (keys['w'] || keys['arrowup']) dy -= 1;
             if (keys['s'] || keys['arrowdown']) dy += 1;
             if (keys['a'] || keys['arrowleft']) dx -= 1;
             if (keys['d'] || keys['arrowright']) dx += 1;
-
-            if(input.x !== 0 || input.y !== 0) {
-                dx = input.x; dy = input.y;
-            }
+            if(input.x !== 0 || input.y !== 0) { dx = input.x; dy = input.y; }
 
             this.isMoving = (dx !== 0 || dy !== 0);
 
-            // If we are moving, update the direction we face and aim!
             if (this.isMoving) { 
-                let len = Math.sqrt(dx * dx + dy * dy); 
-                dx /= len; dy /= len; 
-                
-                this.aimDir.x = dx;
-                this.aimDir.y = dy;
+                let len = Math.sqrt(dx * dx + dy * dy); dx /= len; dy /= len; 
+                this.aimDir.x = dx; this.aimDir.y = dy;
 
-                if (dy > 0.5) this.frameY = 0; 
-                else if (dy < -0.5) this.frameY = 1; 
-                else this.frameY = 2; 
+                if (dy > 0.5) this.frameY = 0; else if (dy < -0.5) this.frameY = 1; else this.frameY = 2; 
+                if (dx > 0) this.facingRight = true; if (dx < 0) this.facingRight = false;
 
-                if (dx > 0) this.facingRight = true;
-                if (dx < 0) this.facingRight = false;
-
-                // Stop animating legs if aiming (looks cooler, like walking carefully)
                 if(!this.isAiming) {
                     this.gameFrame++;
-                    if (this.gameFrame % this.staggerFrames === 0) {
-                        if (this.frameX < 3) this.frameX++; else this.frameX = 0; 
-                    }
-                } else {
-                    this.frameX = 0; // Frozen tactical pose
-                }
-            } else {
-                this.frameX = 0; this.gameFrame = 0;
-            }
+                    if (this.gameFrame % this.staggerFrames === 0) { if (this.frameX < 3) this.frameX++; else this.frameX = 0; }
+                } else { this.frameX = 0; }
+            } else { this.frameX = 0; this.gameFrame = 0; }
 
-            // Apply movement Speed
-            let moveSpeed = this.isAiming ? this.speed * 0.5 : this.speed; // Walk slower when aiming!
-            let nextX = this.x + dx * moveSpeed; 
-            let nextY = this.y + dy * moveSpeed;
+            let moveSpeed = this.isAiming ? this.speed * 0.5 : this.speed; 
+            let nextX = this.x + dx * moveSpeed; let nextY = this.y + dy * moveSpeed;
             
             let collision = false;
             let playerHitbox = { left: nextX - 15, right: nextX + 15, top: nextY - 10, bottom: nextY + 25 };
@@ -182,50 +174,65 @@
             for (let obj of worldObjects) {
                 if (obj.isSolid) {
                     let objHitbox = { left: obj.x, right: obj.x + obj.size, top: obj.y + (obj.size*0.4), bottom: obj.y + obj.size };
-                    if (playerHitbox.right > objHitbox.left && playerHitbox.left < objHitbox.right && playerHitbox.bottom > objHitbox.top && playerHitbox.top < objHitbox.bottom) {
-                        collision = true; break;
-                    }
+                    if (playerHitbox.right > objHitbox.left && playerHitbox.left < objHitbox.right && playerHitbox.bottom > objHitbox.top && playerHitbox.top < objHitbox.bottom) { collision = true; break; }
                 }
             }
             if (!collision) { this.x = nextX; this.y = nextY; }
 
-            // Camera Follow with MASSIVE SHAKE
-            let targetCamX = this.x - canvas.width / 2;
-            let targetCamY = this.y - canvas.height / 2;
-            
-            if(camera.shakeTime > 0) {
-                targetCamX += (Math.random() - 0.5) * camera.shakeIntensity; 
-                targetCamY += (Math.random() - 0.5) * camera.shakeIntensity; 
-                camera.shakeTime--;
-            }
-
-            camera.x += (targetCamX - camera.x) * 0.1;
-            camera.y += (targetCamY - camera.y) * 0.1;
+            let targetCamX = this.x - canvas.width / 2; let targetCamY = this.y - canvas.height / 2;
+            if(camera.shakeTime > 0) { targetCamX += (Math.random() - 0.5) * camera.shakeIntensity; targetCamY += (Math.random() - 0.5) * camera.shakeIntensity; camera.shakeTime--; }
+            camera.x += (targetCamX - camera.x) * 0.1; camera.y += (targetCamY - camera.y) * 0.1;
         }
 
         draw(ctx) {
             ctx.fillStyle = "rgba(0,0,0,0.3)"; ctx.beginPath(); ctx.ellipse(this.x, this.y + 35, 25, 12, 0, 0, Math.PI * 2); ctx.fill();
-            if (images['panda']) {
-                let spriteW = images['panda'].width / 4; let spriteH = images['panda'].height / 3;
+            
+            // DRAW THE CURRENTLY SELECTED SPRITE
+            if (images[this.spriteName]) {
+                let currentImage = images[this.spriteName];
+                let spriteW = currentImage.width / 4; let spriteH = currentImage.height / 3;
+                
                 ctx.save(); ctx.translate(this.x, this.y);
                 if (!this.facingRight) ctx.scale(-1, 1); 
-                ctx.drawImage(images['panda'], this.frameX * spriteW, this.frameY * spriteH, spriteW, spriteH, -this.width / 2, -this.height / 2, this.width, this.height);
+                ctx.drawImage(currentImage, this.frameX * spriteW, this.frameY * spriteH, spriteW, spriteH, -this.width / 2, -this.height / 2, this.width, this.height);
                 ctx.restore();
+            } else {
+                // Red box fallback
+                ctx.fillStyle="red"; ctx.fillRect(this.x-20, this.y-20, 40,40);
             }
         }
     }
 
-    const player = new Player(MAP_SIZE * TILE_SIZE / 2, MAP_SIZE * TILE_SIZE / 2);
+    // Initialize with Panda
+    const player = new Player(MAP_SIZE * TILE_SIZE / 2, MAP_SIZE * TILE_SIZE / 2, 'panda');
 
-    // --- ACTIONS & ALERTS ---
+    // --- ACTIONS & UI ---
     function showAlert(text, color) {
         const alertBox = document.getElementById('alert-text');
         alertBox.innerText = text; alertBox.style.color = color; alertBox.style.opacity = 1; alertBox.style.top = "35%";
         setTimeout(() => { alertBox.style.opacity = 0; alertBox.style.top = "40%"; }, 1200);
     }
 
+    // NEW: Swap Character Logic!
+    function swapCharacter(e) {
+        e.stopPropagation();
+        if(player.spriteName === 'panda') {
+            player.spriteName = 'fox';
+            document.getElementById('btn-swap').innerText = "🐼 Swap";
+            document.getElementById('btn-swap').style.background = "#e67e22";
+            document.getElementById('btn-swap').style.borderColor = "#d35400";
+            showAlert("Swapped to FOX!", "#e67e22");
+        } else {
+            player.spriteName = 'panda';
+            document.getElementById('btn-swap').innerText = "🦊 Swap";
+            document.getElementById('btn-swap').style.background = "#9b59b6";
+            document.getElementById('btn-swap').style.borderColor = "#8e44ad";
+            showAlert("Swapped to PANDA!", "#ecf0f1");
+        }
+    }
+
     function triggerSearch(e) {
-        e.stopPropagation(); // Prevents movement bug!
+        e.stopPropagation(); 
         let found = false;
         for (let obj of worldObjects) {
             let objCenterX = obj.x + obj.size/2; let objCenterY = obj.y + obj.size/2;
@@ -239,65 +246,39 @@
         if (!found) showAlert("Nothing here!", "#f39c12");
     }
 
-    // --- THE TACTICAL LASER & SHOOTING LOGIC ---
     function triggerShoot(e) { 
-        e.stopPropagation(); // Prevents movement bug!
+        e.stopPropagation(); 
         const btn = document.getElementById('btn-shoot');
 
         if (!player.isAiming) {
-            // TAP 1: TURN ON LASER
-            player.isAiming = true;
-            btn.classList.add("aiming-mode");
-            
+            player.isAiming = true; btn.classList.add("aiming-mode");
         } else {
-            // TAP 2: FIRE THE CANNON!
-            player.isAiming = false;
-            btn.classList.remove("aiming-mode");
+            player.isAiming = false; btn.classList.remove("aiming-mode");
+            let gunX = player.x + (player.facingRight ? 20 : -20); let gunY = player.y + 10;
+            let hitX = gunX; let hitY = gunY; let hitObjIndex = -1;
 
-            // Calculate Raycast (Where does the laser hit?)
-            let gunX = player.x + (player.facingRight ? 20 : -20);
-            let gunY = player.y + 10;
-            let hitX = gunX; let hitY = gunY;
-            let hitObjIndex = -1;
-
-            // Step forward pixel by pixel to find the wall
             for(let i=0; i<600; i+=5) { 
-                hitX += player.aimDir.x * 5; hitY += player.aimDir.y * 5;
-                let collided = false;
+                hitX += player.aimDir.x * 5; hitY += player.aimDir.y * 5; let collided = false;
                 for (let j=0; j < worldObjects.length; j++) {
                     let obj = worldObjects[j];
                     if (obj.isSolid || obj.type === 'bush') {
-                        if (hitX > obj.x && hitX < obj.x + obj.size && hitY > obj.y && hitY < obj.y + obj.size) {
-                            hitObjIndex = j; collided = true; break;
-                        }
+                        if (hitX > obj.x && hitX < obj.x + obj.size && hitY > obj.y && hitY < obj.y + obj.size) { hitObjIndex = j; collided = true; break; }
                     }
                 }
                 if (collided) break;
             }
 
-            // JUICE: Massive Camera Shake
-            camera.shakeTime = 10;
-            camera.shakeIntensity = 25; 
-
-            // Create Blast Effect Array
+            camera.shakeTime = 10; camera.shakeIntensity = 25; 
             explosions.push({ x: hitX, y: hitY, radius: 10, maxRadius: 50, life: 1.0 });
 
-            // DESTRUCTION SYSTEM!
             if (hitObjIndex !== -1) {
                 let target = worldObjects[hitObjIndex];
-                
-                // If we hit a chest or bush, blow it up and remove it!
                 if (target.type === 'chest' || target.type === 'bush') {
-                    if (target.hasMoney) {
-                        showAlert("💰 BLEW UP HIDDEN MONEY! 💰", "#2ecc71");
-                    } else {
-                        showAlert("Boom! Destroyed.", "#e74c3c");
-                    }
-                    worldObjects.splice(hitObjIndex, 1); // Delete from map!
+                    if (target.hasMoney) showAlert("💰 BLEW UP HIDDEN MONEY! 💰", "#2ecc71");
+                    else showAlert("Boom! Destroyed.", "#e74c3c");
+                    worldObjects.splice(hitObjIndex, 1); 
                 }
-            } else {
-                showAlert("Missed!", "#bdc3c7");
-            }
+            } else { showAlert("Missed!", "#bdc3c7"); }
         }
     }
 
@@ -305,34 +286,20 @@
     function gameLoop() {
         ctx.fillStyle = '#6ab04c'; ctx.fillRect(0, 0, canvas.width, canvas.height);
         player.update();
+        ctx.save(); ctx.translate(-Math.floor(camera.x), -Math.floor(camera.y));
 
-        ctx.save();
-        ctx.translate(-Math.floor(camera.x), -Math.floor(camera.y));
-
-        // Draw Map Grid
-        for (let r = 0; r < MAP_SIZE; r++) {
-            for (let c = 0; c < MAP_SIZE; c++) {
-                if ((r+c)%2===0) { ctx.fillStyle = "rgba(0,0,0,0.05)"; ctx.fillRect(c*TILE_SIZE, r*TILE_SIZE, TILE_SIZE, TILE_SIZE); }
-            }
-        }
+        for (let r = 0; r < MAP_SIZE; r++) { for (let c = 0; c < MAP_SIZE; c++) { if ((r+c)%2===0) { ctx.fillStyle = "rgba(0,0,0,0.05)"; ctx.fillRect(c*TILE_SIZE, r*TILE_SIZE, TILE_SIZE, TILE_SIZE); } } }
 
         let renderQueue = [];
         renderQueue.push({ type: 'player', y: player.y + (player.height*0.4), obj: player });
-
-        for(let obj of worldObjects) {
-            let visualY = obj.y + obj.size; if(obj.type === 'house') visualY = obj.y + (obj.size * 1.5); 
-            renderQueue.push({ type: 'world', y: visualY, obj: obj });
-        }
+        for(let obj of worldObjects) { let visualY = obj.y + obj.size; if(obj.type === 'house') visualY = obj.y + (obj.size * 1.5); renderQueue.push({ type: 'world', y: visualY, obj: obj }); }
         renderQueue.sort((a, b) => a.y - b.y);
 
         for(let item of renderQueue) {
             if(item.type === 'player') item.obj.draw(ctx);
             else {
-                let wObj = item.obj;
-                ctx.fillStyle = "rgba(0,0,0,0.3)";
-                let shadowW = wObj.size * 0.8; let shadowH = wObj.size * 0.3;
+                let wObj = item.obj; ctx.fillStyle = "rgba(0,0,0,0.3)"; let shadowW = wObj.size * 0.8; let shadowH = wObj.size * 0.3;
                 if(wObj.type !== 'bush') { ctx.beginPath(); ctx.ellipse(wObj.x + wObj.size/2, wObj.y + wObj.size - 10, shadowW/2, shadowH/2, 0, 0, Math.PI * 2); ctx.fill(); }
-
                 if(images[wObj.type]) {
                     if(wObj.type === 'house') ctx.drawImage(images['house'], wObj.x - 20, wObj.y - 40, wObj.size * 1.5, wObj.size * 1.5);
                     else if(wObj.type === 'tree') ctx.drawImage(images['tree'], wObj.x - 10, wObj.y - 40, wObj.size * 1.2, wObj.size * 1.4);
@@ -341,65 +308,26 @@
             }
         }
 
-        // DRAW LASER IF AIMING
         if (player.isAiming) {
-            let gunX = player.x + (player.facingRight ? 20 : -20);
-            let gunY = player.y + 10;
-            
-            // Calculate Laser end point (raycast)
+            let gunX = player.x + (player.facingRight ? 20 : -20); let gunY = player.y + 10;
             let laserX = gunX; let laserY = gunY;
             for(let i=0; i<600; i+=5) { 
-                laserX += player.aimDir.x * 5; laserY += player.aimDir.y * 5;
-                let hit = false;
-                for (let obj of worldObjects) {
-                    if ((obj.isSolid || obj.type === 'bush') && laserX > obj.x && laserX < obj.x + obj.size && laserY > obj.y && laserY < obj.y + obj.size) {
-                        hit = true; break;
-                    }
-                }
+                laserX += player.aimDir.x * 5; laserY += player.aimDir.y * 5; let hit = false;
+                for (let obj of worldObjects) { if ((obj.isSolid || obj.type === 'bush') && laserX > obj.x && laserX < obj.x + obj.size && laserY > obj.y && laserY < obj.y + obj.size) { hit = true; break; } }
                 if (hit) break;
             }
-
-            // Draw Red Laser Line
-            ctx.beginPath();
-            ctx.setLineDash([10, 10]); // Dashed line effect
-            ctx.moveTo(gunX, gunY);
-            ctx.lineTo(laserX, laserY);
-            ctx.strokeStyle = "rgba(231, 76, 60, 0.7)"; // Transparent Red
-            ctx.lineWidth = 4;
-            ctx.stroke();
-            ctx.setLineDash([]); // Reset dash
-
-            // Draw Crosshair at the end
-            ctx.beginPath();
-            ctx.arc(laserX, laserY, 8, 0, Math.PI * 2);
-            ctx.strokeStyle = "#e74c3c";
-            ctx.lineWidth = 3;
-            ctx.stroke();
-            ctx.fillStyle = "rgba(231, 76, 60, 0.4)";
-            ctx.fill();
+            ctx.beginPath(); ctx.setLineDash([10, 10]); ctx.moveTo(gunX, gunY); ctx.lineTo(laserX, laserY); ctx.strokeStyle = "rgba(231, 76, 60, 0.7)"; ctx.lineWidth = 4; ctx.stroke(); ctx.setLineDash([]);
+            ctx.beginPath(); ctx.arc(laserX, laserY, 8, 0, Math.PI * 2); ctx.strokeStyle = "#e74c3c"; ctx.lineWidth = 3; ctx.stroke(); ctx.fillStyle = "rgba(231, 76, 60, 0.4)"; ctx.fill();
         }
 
-        // DRAW EXPLOSIONS
         for (let i = explosions.length - 1; i >= 0; i--) {
             let exp = explosions[i];
-            
-            ctx.beginPath();
-            ctx.arc(exp.x, exp.y, exp.radius, 0, Math.PI * 2);
-            ctx.fillStyle = `rgba(241, 196, 15, ${exp.life})`; // Fading Yellow/Orange
-            ctx.fill();
-            
-            ctx.beginPath();
-            ctx.arc(exp.x, exp.y, exp.radius * 0.7, 0, Math.PI * 2);
-            ctx.fillStyle = `rgba(231, 76, 60, ${exp.life})`; // Fading Red Core
-            ctx.fill();
-
-            exp.radius += 5; // Expand fast
-            exp.life -= 0.1; // Fade out fast
-            if (exp.life <= 0) explosions.splice(i, 1);
+            ctx.beginPath(); ctx.arc(exp.x, exp.y, exp.radius, 0, Math.PI * 2); ctx.fillStyle = `rgba(241, 196, 15, ${exp.life})`; ctx.fill();
+            ctx.beginPath(); ctx.arc(exp.x, exp.y, exp.radius * 0.7, 0, Math.PI * 2); ctx.fillStyle = `rgba(231, 76, 60, ${exp.life})`; ctx.fill();
+            exp.radius += 5; exp.life -= 0.1; if (exp.life <= 0) explosions.splice(i, 1);
         }
 
-        ctx.restore();
-        requestAnimationFrame(gameLoop);
+        ctx.restore(); requestAnimationFrame(gameLoop);
     }
 </script>
 </body>
