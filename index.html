@@ -63,10 +63,9 @@
     function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
     window.addEventListener('resize', resize); resize();
 
-    // --- 1. ASSET PIPELINE (BULLETPROOF) ---
+    // --- 1. STRICT AAA ASSET PRELOADER ---
     const images = {}; 
     let assetsLoaded = 0;
-    let gameStarted = false; // Prevents multiple game loops
     
     const assetList = { 
         panda: 'panda.png', fox: 'fox.png',
@@ -81,39 +80,34 @@
     
     const totalAssets = Object.keys(assetList).length + 1; // +1 for Audio
 
-    const shootAudio = new Audio('shoot.mp3');
-    shootAudio.oncanplaythrough = () => handleAssetLoad();
-    shootAudio.onerror = () => handleAssetLoad(); // Proceed even if audio is missing
-
-    function startGame() {
-        if (gameStarted) return;
-        gameStarted = true;
-        document.getElementById('loading').style.opacity = 0;
-        setTimeout(() => {
-            document.getElementById('loading').style.display = 'none';
-            requestAnimationFrame(gameLoop);
-        }, 500);
-    }
-
-    function handleAssetLoad() {
+    function assetCheck() {
         assetsLoaded++;
-        let percent = Math.min(100, Math.floor((assetsLoaded / totalAssets) * 100));
+        let percent = Math.floor((assetsLoaded / totalAssets) * 100);
         document.getElementById('loading-bar').style.width = percent + "%";
         document.getElementById('loading-text').innerText = `Loading: ${percent}%`;
 
-        if (assetsLoaded >= totalAssets) {
-            setTimeout(startGame, 300);
+        // Strict Check: ONLY start when exactly 100% of files are in memory
+        if (assetsLoaded === totalAssets) {
+            setTimeout(() => {
+                document.getElementById('loading').style.opacity = 0;
+                setTimeout(() => {
+                    document.getElementById('loading').style.display = 'none';
+                    requestAnimationFrame(gameLoop); // Kickoff Game
+                }, 500);
+            }, 300);
         }
     }
 
-    // Force start after 4 seconds just in case browsers block file loading locally!
-    setTimeout(startGame, 4000); 
+    // Load Audio safely
+    const shootAudio = new Audio('shoot.mp3');
+    shootAudio.oncanplaythrough = assetCheck;
+    shootAudio.onerror = assetCheck; // Prevents loader from freezing if audio fails
 
-    // Load Images Safely
+    // Load all Images strictly
     for (let key in assetList) {
         images[key] = new Image(); 
-        images[key].onload = () => handleAssetLoad();
-        images[key].onerror = () => { console.warn("MISSING FILE: " + assetList[key]); handleAssetLoad(); };
+        images[key].onload = assetCheck;
+        images[key].onerror = () => { console.error(`Missing File: ${assetList[key]}`); assetCheck(); };
         images[key].src = assetList[key];
     }
 
@@ -135,7 +129,6 @@
     const joystickKnob = document.getElementById('joystick-knob');
     let isDragging = false, joystickCenter = { x: 0, y: 0 };
 
-    // Modern Pointer Events for perfect Touch & Mouse support
     joystickZone.addEventListener('pointerdown', handlePointerDown);
     window.addEventListener('pointermove', handlePointerMove);
     window.addEventListener('pointerup', handlePointerUp);
@@ -180,13 +173,22 @@
         }
     }
 
-    // --- PLAYER CLASS ---
+    // --- PLAYER CLASS (AAA SPRITE SHEET LOGIC) ---
     class Player {
         constructor(x, y, spriteName) {
-            this.x = x; this.y = y; this.width = 80; this.height = 80; this.speed = 6;
+            this.x = x; this.y = y; this.width = 100; this.height = 100; this.speed = 6;
             this.spriteName = spriteName; 
-            this.facingRight = true; this.isMoving = false;
-            this.aimDir = { x: 1, y: 0 }; this.isAiming = false;
+            
+            // Animation Variables
+            this.frameX = 0; 
+            this.frameY = 0; 
+            this.gameFrame = 0; 
+            this.staggerFrames = 5; // Lower number = faster animation
+            
+            this.facingRight = true; 
+            this.isMoving = false;
+            this.aimDir = { x: 1, y: 0 }; 
+            this.isAiming = false;
         }
 
         update() {
@@ -200,14 +202,38 @@
             if (this.isMoving) { 
                 let len = Math.sqrt(dx * dx + dy * dy); dx /= len; dy /= len; 
                 this.aimDir.x = dx; this.aimDir.y = dy;
-                if (dx > 0) this.facingRight = true; if (dx < 0) this.facingRight = false;
+                
+                // --- SPRITE SHEET DIRECTION LOGIC ---
+                // Row 0 = Down, Row 1 = Up, Row 2 = Side
+                if (Math.abs(dx) > Math.abs(dy)) {
+                    this.frameY = 2; // Side Profile
+                    if (dx > 0) this.facingRight = true; 
+                    if (dx < 0) this.facingRight = false;
+                } else if (dy > 0) {
+                    this.frameY = 0; // Front Profile (Walking towards camera)
+                } else if (dy < 0) {
+                    this.frameY = 1; // Back Profile (Walking away)
+                }
+
+                // Animate through the 4 columns
+                if(!this.isAiming) {
+                    this.gameFrame++;
+                    if (this.gameFrame % this.staggerFrames === 0) { 
+                        this.frameX = (this.frameX + 1) % 4; // Loops 0, 1, 2, 3
+                    }
+                } else {
+                    this.frameX = 0; // Stand still while aiming
+                }
+            } else { 
+                this.frameX = 0; // Return to idle frame
+                this.gameFrame = 0; 
             }
 
             let moveSpeed = this.isAiming ? this.speed * 0.5 : this.speed; 
             let nextX = this.x + dx * moveSpeed; let nextY = this.y + dy * moveSpeed;
             
             let collision = false;
-            let playerHitbox = { left: nextX - 15, right: nextX + 15, top: nextY - 10, bottom: nextY + 25 };
+            let playerHitbox = { left: nextX - 20, right: nextX + 20, top: nextY - 15, bottom: nextY + 30 };
 
             for (let obj of worldObjects) {
                 if (obj.isSolid) {
@@ -223,36 +249,35 @@
         }
 
         draw(ctx) {
-            // Draw Player Shadow
+            // Shadow
             ctx.fillStyle = "rgba(0,0,0,0.3)"; ctx.beginPath(); 
-            ctx.ellipse(this.x, this.y + 35, 25, 12, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.ellipse(this.x, this.y + 35, 30, 12, 0, 0, Math.PI * 2); ctx.fill();
             
-            // Render the Image dynamically (Supports ANY image size/type!)
-            if (images[this.spriteName] && images[this.spriteName].complete && images[this.spriteName].naturalWidth > 0) {
-                let currentImage = images[this.spriteName];
+            let img = images[this.spriteName];
+            if (img && img.complete && img.naturalWidth > 0) {
+                
+                // Calculate exactly 1/4th width and 1/3rd height of your perfect sprite sheet!
+                let spriteW = img.width / 4; 
+                let spriteH = img.height / 3;
+
                 ctx.save(); 
                 ctx.translate(this.x, this.y);
                 
-                // Flip if facing left
-                if (!this.facingRight) ctx.scale(-1, 1); 
-                
-                // --- CODE DRIVEN WOBBLE ANIMATION ---
-                // Makes ANY static image bounce up and down while walking!
-                if(this.isMoving && !this.isAiming) {
-                    let wobble = Math.sin(Date.now() / 100) * 8; // Bob up and down
-                    let rot = Math.sin(Date.now() / 120) * 0.08; // Slight tilt
-                    ctx.translate(0, wobble);
-                    ctx.rotate(rot);
-                }
+                // If facing left AND using the side profile (Row 2), flip the canvas horizontally
+                if (!this.facingRight && this.frameY === 2) { 
+                    ctx.scale(-1, 1); 
+                } 
 
-                // Draw the entire image fitted to the player size
-                ctx.drawImage(currentImage, -this.width / 2, -this.height / 2, this.width, this.height);
+                // Draw the perfectly sliced square
+                ctx.drawImage(
+                    img, 
+                    this.frameX * spriteW, this.frameY * spriteH, // Source X, Y (Crop start)
+                    spriteW, spriteH,                             // Source Width, Height (Crop size)
+                    -this.width / 2, -this.height / 2,            // Destination X, Y (Canvas draw position)
+                    this.width, this.height                       // Destination Width, Height (Canvas size)
+                );
+                
                 ctx.restore();
-            } else {
-                // FALLBACK: If image completely fails to load, draw a temporary colored circle so game isn't invisible
-                ctx.fillStyle = this.spriteName === 'panda' ? 'white' : 'orange';
-                ctx.beginPath(); ctx.arc(this.x, this.y, this.width/2, 0, Math.PI*2); ctx.fill();
-                ctx.lineWidth = 3; ctx.strokeStyle = 'black'; ctx.stroke();
             }
         }
     }
@@ -307,11 +332,10 @@
         } else {
             player.isAiming = false; btn.classList.remove("aiming-mode");
             
-            // Audio Safety Check
             if (shootAudio.readyState >= 2) {
                 let sfx = shootAudio.cloneNode();
                 sfx.volume = 0.6;
-                sfx.play().catch(() => {}); // Catch error if browser blocks sound
+                sfx.play().catch(() => {});
             }
 
             let gunX = player.x + (player.facingRight ? 20 : -20); let gunY = player.y + 10;
@@ -375,18 +399,9 @@
                     ctx.fill(); 
                 }
 
-                // Safety check before drawing world objects to prevent crashes if file missing
                 if(images[wObj.type] && images[wObj.type].complete && images[wObj.type].naturalWidth > 0) {
-                    let drawSize = wObj.size;
-                    let drawX = wObj.x;
-                    let drawY = wObj.y;
-                    
-                    if(['tree', 'stall', 'tent', 'statue'].includes(wObj.type)) {
-                        drawSize = wObj.size * 1.3;
-                        drawX = wObj.x - 10;
-                        drawY = wObj.y - 20;
-                    }
-                    
+                    let drawSize = wObj.size; let drawX = wObj.x; let drawY = wObj.y;
+                    if(['tree', 'stall', 'tent', 'statue'].includes(wObj.type)) { drawSize = wObj.size * 1.3; drawX = wObj.x - 10; drawY = wObj.y - 20; }
                     ctx.drawImage(images[wObj.type], drawX, drawY, drawSize, drawSize);
                 }
             }
@@ -411,8 +426,7 @@
             exp.radius += 6; exp.life -= 0.1; if (exp.life <= 0) explosions.splice(i, 1);
         }
 
-        ctx.restore(); 
-        requestAnimationFrame(gameLoop); // Used requestAnimationFrame to prevent duplicate loop bugs
+        ctx.restore(); requestAnimationFrame(gameLoop);
     }
 </script>
 </body>
