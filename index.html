@@ -3,76 +3,97 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Hide & Hunt - 1v1 Arena</title>
+    <title>Hide & Hunt - Premium Edition</title>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@800;900&display=swap');
+        
         * { margin: 0; padding: 0; box-sizing: border-box; touch-action: none; user-select: none; -webkit-tap-highlight-color: transparent; }
-        body { background-color: #2b2b2b; overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: #1e1e24; overflow: hidden; font-family: 'Nunito', sans-serif; }
         canvas { display: block; image-rendering: pixelated; } 
         
+        /* PREMIUM MOBILE UI */
         #ui-layer { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 10; display: none; }
         
-        #hud { position: absolute; top: 15px; width: 100%; text-align: center; pointer-events: auto; }
-        .score-board { background: rgba(0,0,0,0.8); color: white; padding: 10px 20px; border-radius: 20px; border: 3px solid #f39c12; display: inline-block; font-weight: 900; font-size: 18px; text-transform: uppercase; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
-        .hp-text { color: #e74c3c; font-size: 20px; }
+        #hud { position: absolute; top: 20px; width: 100%; display: flex; justify-content: center; pointer-events: none; }
+        .score-board { background: rgba(20, 20, 25, 0.85); color: white; padding: 12px 30px; border-radius: 40px; border: 2px solid rgba(255,255,255,0.1); backdrop-filter: blur(10px); display: inline-block; font-size: 18px; text-transform: uppercase; box-shadow: 0 10px 30px rgba(0,0,0,0.5); letter-spacing: 1px;}
         
-        #btn-swap { position: absolute; top: 15px; left: 15px; background: #9b59b6; border: 3px solid #8e44ad; color: white; padding: 12px 20px; border-radius: 15px; font-weight: bold; font-size: 18px; pointer-events: auto; cursor: pointer; box-shadow: 0 4px 0 #732d91; transition: transform 0.1s;}
-        #btn-swap:active { transform: translateY(4px); box-shadow: none; }
+        /* Right Side Controls */
+        #right-controls { position: absolute; bottom: 40px; right: 30px; display: flex; flex-direction: column; gap: 20px; pointer-events: auto; align-items: flex-end;}
+        
+        .action-btn { width: 75px; height: 75px; border-radius: 50%; border: none; color: white; font-size: 30px; cursor: pointer; display: flex; justify-content: center; align-items: center; transition: transform 0.1s, box-shadow 0.1s; background: rgba(255,255,255,0.1); backdrop-filter: blur(8px); border: 2px solid rgba(255,255,255,0.2); box-shadow: 0 8px 20px rgba(0,0,0,0.4); }
+        .action-btn:active { transform: scale(0.9) translateY(4px); box-shadow: 0 2px 10px rgba(0,0,0,0.4); }
+        
+        #btn-search { background: linear-gradient(135deg, #2ecc71, #27ae60); border-color: #2ecc71; }
+        #btn-shoot { background: linear-gradient(135deg, #e74c3c, #c0392b); border-color: #ff7675; width: 90px; height: 90px; font-size: 35px; }
+        .aiming-mode { box-shadow: 0 0 30px #ff7675, inset 0 0 15px rgba(255,255,255,0.5) !important; transform: scale(1.1); }
 
-        #joystick-zone { position: absolute; bottom: 30px; left: 30px; width: 140px; height: 140px; background: rgba(0, 0, 0, 0.2); border-radius: 50%; pointer-events: auto; border: 3px solid rgba(255,255,255,0.1); backdrop-filter: blur(4px); }
-        #joystick-knob { position: absolute; top: 50%; left: 50%; width: 50px; height: 50px; background: rgba(255, 255, 255, 0.9); border-radius: 50%; transform: translate(-50%, -50%); box-shadow: 0 4px 10px rgba(0,0,0,0.5); pointer-events: none;}
+        /* Left Side Controls */
+        #joystick-zone { position: absolute; bottom: 40px; left: 30px; width: 150px; height: 150px; background: rgba(20, 20, 30, 0.4); border-radius: 50%; pointer-events: auto; border: 2px solid rgba(255,255,255,0.1); backdrop-filter: blur(5px); box-shadow: inset 0 0 20px rgba(0,0,0,0.5); }
+        #joystick-knob { position: absolute; top: 50%; left: 50%; width: 60px; height: 60px; background: radial-gradient(circle, #ecf0f1, #bdc3c7); border-radius: 50%; transform: translate(-50%, -50%); box-shadow: 0 10px 20px rgba(0,0,0,0.6); pointer-events: none; border: 2px solid #fff;}
         
-        #action-zone { position: absolute; bottom: 40px; right: 40px; pointer-events: auto; display: flex; gap: 20px; }
-        .action-btn { width: 80px; height: 80px; border-radius: 50%; border: 4px solid rgba(0,0,0,0.3); color: white; font-weight: bold; cursor: pointer; display: flex; justify-content: center; align-items: center; font-size: 30px; transition: transform 0.1s; box-shadow: inset 0 -5px 0 rgba(0,0,0,0.2), 0 5px 15px rgba(0,0,0,0.4);}
-        .action-btn:active { transform: scale(0.9) translateY(4px); box-shadow: inset 0 -2px 0 rgba(0,0,0,0.2), 0 2px 5px rgba(0,0,0,0.4); }
-        
-        #btn-search { background-color: #2ecc71; }
-        #btn-shoot { background-color: #e74c3c; transition: all 0.2s; }
-        .aiming-mode { background-color: #c0392b !important; border-color: #f1c40f !important; box-shadow: 0 0 20px #e74c3c, inset 0 -5px 0 rgba(0,0,0,0.2) !important; transform: scale(1.1); }
+        /* Top Left - Swap Button */
+        #btn-swap { position: absolute; top: 20px; left: 20px; background: linear-gradient(135deg, #9b59b6, #8e44ad); border: 2px solid #d2b4de; color: white; padding: 12px 25px; border-radius: 30px; font-size: 18px; pointer-events: auto; cursor: pointer; box-shadow: 0 8px 15px rgba(0,0,0,0.4); display: flex; align-items: center; gap: 8px;}
+        #btn-swap:active { transform: translateY(4px); box-shadow: 0 2px 5px rgba(0,0,0,0.4); }
 
-        #alert-text { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); color: #f1c40f; font-size: 35px; font-weight: 900; -webkit-text-stroke: 1.5px black; text-shadow: 0px 5px 0 #000; opacity: 0; transition: opacity 0.2s, top 0.2s; pointer-events: none; z-index: 50; text-align: center;}
+        /* Dynamic Feedback Text */
+        #alert-text { position: absolute; top: 30%; left: 50%; transform: translate(-50%, -50%) scale(0.5); color: #f1c40f; font-size: 45px; -webkit-text-stroke: 2px #2c3e50; text-shadow: 0px 8px 0 #000; opacity: 0; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); pointer-events: none; z-index: 50; text-align: center; width: 100%;}
+        .show-alert { opacity: 1 !important; transform: translate(-50%, -50%) scale(1) !important; top: 35% !important; }
         
-        /* Loading & Menus */
-        .overlay-screen { position: absolute; top:0; left:0; width: 100vw; height: 100vh; background: #1a1a1a; color: white; display: flex; justify-content: center; align-items: center; font-size: 30px; font-weight: 900; z-index: 100; flex-direction: column; text-transform: uppercase; letter-spacing: 2px; }
-        #loading-bar-container { width: 60%; max-width: 400px; height: 20px; background: #333; border-radius: 10px; margin-top: 20px; border: 3px solid #555; overflow: hidden; }
-        #loading-bar { width: 0%; height: 100%; background: #2ecc71; box-shadow: 0 0 10px #2ecc71; transition: width 0.2s; }
+        /* AAA Setup & Loading Screens */
+        .overlay-screen { position: absolute; top:0; left:0; width: 100vw; height: 100vh; background: radial-gradient(circle at center, #2c3e50, #000000); color: white; display: flex; justify-content: center; align-items: center; font-size: 30px; z-index: 100; flex-direction: column; text-transform: uppercase; letter-spacing: 2px; }
+        #loading-bar-container { width: 70%; max-width: 400px; height: 12px; background: rgba(255,255,255,0.1); border-radius: 10px; margin-top: 20px; overflow: hidden; box-shadow: inset 0 0 10px rgba(0,0,0,0.8); }
+        #loading-bar { width: 0%; height: 100%; background: linear-gradient(90deg, #00b894, #55efc4); box-shadow: 0 0 15px #00b894; transition: width 0.3s ease-out; }
         
-        .setup-box { background: #2b2b2b; padding: 30px; border-radius: 20px; border: 4px solid #f39c12; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.8); }
-        .input-field { width: 100%; padding: 15px; margin: 15px 0; font-size: 20px; font-weight: bold; text-align: center; border-radius: 10px; border: none; text-transform: uppercase; }
-        .start-btn { background: #2ecc71; border: none; padding: 15px 40px; font-size: 24px; color: white; font-weight: bold; border-radius: 10px; cursor: pointer; border-bottom: 5px solid #27ae60; width: 100%; margin-top: 10px;}
-        .start-btn:active { transform: translateY(5px); border-bottom: 0; }
+        .setup-box { background: rgba(30,30,40,0.9); padding: 40px; border-radius: 25px; border: 1px solid rgba(255,255,255,0.1); text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.8); backdrop-filter: blur(10px); width: 90%; max-width: 400px;}
+        .input-group { margin-bottom: 20px; text-align: left; }
+        .input-group label { font-size: 14px; color: #a4b0be; margin-bottom: 5px; display: block; font-weight: bold;}
+        .input-field { width: 100%; padding: 15px 20px; font-size: 20px; font-weight: bold; background: rgba(0,0,0,0.5); color: #fff; border-radius: 15px; border: 2px solid transparent; outline: none; transition: border 0.2s; font-family: 'Nunito', sans-serif;}
+        .input-field:focus { border-color: #0984e3; background: rgba(0,0,0,0.8); }
+        .start-btn { background: linear-gradient(135deg, #0984e3, #00cec9); border: none; padding: 18px; font-size: 22px; color: white; font-weight: 900; border-radius: 15px; cursor: pointer; width: 100%; margin-top: 10px; box-shadow: 0 10px 20px rgba(9, 132, 227, 0.4); text-transform: uppercase; letter-spacing: 1px;}
+        .start-btn:active { transform: translateY(4px); box-shadow: 0 4px 10px rgba(9, 132, 227, 0.4); }
     </style>
 </head>
 <body>
 
-    <!-- Loading Screen -->
+    <!-- Smooth Loading -->
     <div id="loading" class="overlay-screen">
-        <div>INITIALIZING WORLD...</div>
+        <div style="font-weight: 900; color: #fff; text-shadow: 0 4px 10px rgba(0,0,0,0.5);">HIDE & HUNT</div>
         <div id="loading-bar-container"><div id="loading-bar"></div></div>
-        <p id="loading-text" style="font-size:16px; margin-top:10px; color:#aaa;">Loading Assets: 0%</p>
+        <p id="loading-text" style="font-size:14px; margin-top:15px; color:#b2bec3; font-weight: bold;">Loading Assets...</p>
     </div>
 
-    <!-- Player Setup Screen -->
+    <!-- Premium Lobby -->
     <div id="setup-screen" class="overlay-screen" style="display: none;">
         <div class="setup-box">
-            <h2 style="color: #f1c40f; margin-bottom: 20px;">FIGHTER SETUP</h2>
-            <p style="font-size: 16px; color:#bdc3c7;">Player 1 (Panda Team)</p>
-            <input type="text" id="p1-name" class="input-field" placeholder="Enter Name" value="Panda">
-            <p style="font-size: 16px; color:#bdc3c7; margin-top:10px;">Player 2 (Fox Team)</p>
-            <input type="text" id="p2-name" class="input-field" placeholder="Enter Name" value="Fox">
+            <h2 style="color: #fff; margin-bottom: 30px; text-shadow: 0 4px 10px rgba(0,0,0,0.5); font-size: 32px;">LOBBY</h2>
+            <div class="input-group">
+                <label>PANDA TEAM (PLAYER 1)</label>
+                <input type="text" id="p1-name" class="input-field" placeholder="Enter Name" value="Panda">
+            </div>
+            <div class="input-group">
+                <label>FOX TEAM (PLAYER 2)</label>
+                <input type="text" id="p2-name" class="input-field" placeholder="Enter Name" value="Fox">
+            </div>
             <button class="start-btn" onclick="startGame()">ENTER ARENA</button>
         </div>
     </div>
 
     <canvas id="gameCanvas"></canvas>
 
+    <!-- Mobile UI Layer (Strict Pointer Events Management) -->
     <div id="ui-layer">
-        <div id="btn-swap">🐼 Swap Player</div>
+        <!-- Direct HTML Event attributes guarantee mobile responsiveness -->
+        <button id="btn-swap" ontouchstart="handleSwap(event)" onmousedown="handleSwap(event)">🐼 Swap Player</button>
+        
         <div id="hud"><div class="score-board" id="game-hud">...</div></div>
+        
         <div id="joystick-zone"><div id="joystick-knob"></div></div>
-        <div id="action-zone">
-            <div class="action-btn" id="btn-search">🔎</div>
-            <div class="action-btn" id="btn-shoot">🔫</div>
+        
+        <div id="right-controls">
+            <button class="action-btn" id="btn-search" ontouchstart="handleSearch(event)" onmousedown="handleSearch(event)">🔎</button>
+            <button class="action-btn" id="btn-shoot" ontouchstart="handleShoot(event)" onmousedown="handleShoot(event)">🔫</button>
         </div>
+        
         <div id="alert-text">Nothing here...</div>
     </div>
 
@@ -82,82 +103,59 @@
     function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
     window.addEventListener('resize', resize); resize();
 
-    // --- 1. ASSET PRELOADER ---
-    const images = {}; 
-    let assetsLoaded = 0;
-    
+    // --- 1. SEAMLESS ASSET PRELOADER ---
+    const images = {}; let assetsLoaded = 0;
     const assetList = { 
-        panda: 'panda.png', fox: 'fox.png',
-        grass: 'Tall Grass Patch.png', log: 'Hollow Log.png', bush: 'Berry Bush.png', 
-        tree: 'Pine Tree.png', shroom: 'Giant Mushroom.png', wall: 'Brick Wall Segment.png', 
-        fence: 'Wooden Fence.png', pillar: 'Stone Pillar.png', well: 'Water Well.png', 
-        statue: 'Animal Statue.png', barrel: 'Wooden Barrels.png', safe: 'Metal Safe.png', 
-        crate: 'Supply Crate.png', vending: 'Vending Machine.png', sack: 'Loot Sack.png', 
-        tent: 'Camping Tent.png', fire: 'Campfire.png', sign: 'Signpost.png', 
-        cart: 'Broken Cart.png', stall: 'Market Stall.png'
+        panda: 'panda.png', fox: 'fox.png', grass: 'Tall Grass Patch.png', log: 'Hollow Log.png', bush: 'Berry Bush.png', 
+        tree: 'Pine Tree.png', shroom: 'Giant Mushroom.png', wall: 'Brick Wall Segment.png', fence: 'Wooden Fence.png', pillar: 'Stone Pillar.png', well: 'Water Well.png', 
+        statue: 'Animal Statue.png', barrel: 'Wooden Barrels.png', safe: 'Metal Safe.png', crate: 'Supply Crate.png', vending: 'Vending Machine.png', sack: 'Loot Sack.png', 
+        tent: 'Camping Tent.png', fire: 'Campfire.png', sign: 'Signpost.png', cart: 'Broken Cart.png', stall: 'Market Stall.png'
     };
     const totalAssets = Object.keys(assetList).length + 1;
 
     function assetCheck() {
-        assetsLoaded++;
-        let percent = Math.floor((assetsLoaded / totalAssets) * 100);
+        assetsLoaded++; let percent = Math.floor((assetsLoaded / totalAssets) * 100);
         document.getElementById('loading-bar').style.width = percent + "%";
-        document.getElementById('loading-text').innerText = `Loading: ${percent}%`;
-
         if (assetsLoaded >= totalAssets) {
             setTimeout(() => {
-                document.getElementById('loading').style.display = 'none';
-                document.getElementById('setup-screen').style.display = 'flex'; // Show Setup
-            }, 500);
+                document.getElementById('loading').style.opacity = '0';
+                document.getElementById('loading').style.pointerEvents = 'none';
+                document.getElementById('setup-screen').style.display = 'flex';
+            }, 600);
         }
     }
 
-    const shootAudio = new Audio('shoot.mp3');
-    shootAudio.oncanplaythrough = assetCheck;
-    shootAudio.onerror = assetCheck; 
-
+    const shootAudio = new Audio('shoot.mp3'); shootAudio.oncanplaythrough = assetCheck; shootAudio.onerror = assetCheck; 
     for (let key in assetList) {
-        let img = new Image(); 
-        let isLoaded = false;
+        let img = new Image(); let isLoaded = false;
         const markLoaded = () => { if(!isLoaded) { isLoaded = true; assetCheck(); } };
-        img.onload = markLoaded; img.onerror = markLoaded; 
-        img.src = assetList[key];
-        if(img.complete) markLoaded();
-        images[key] = img;
+        img.onload = markLoaded; img.onerror = markLoaded; img.src = assetList[key];
+        if(img.complete) markLoaded(); images[key] = img;
     }
 
     // --- GAME CONSTANTS ---
-    const TILE_SIZE = 80; 
-    const MAP_SIZE = 60; // MASSIVE MAP (4800x4800 px)
+    const TILE_SIZE = 80; const MAP_SIZE = 50; 
     let camera = { x: 0, y: 0, shakeTime: 0, shakeIntensity: 0 }; 
-    let explosions = []; 
-    let worldObjects = [];
-
+    let explosions = []; let radarPings = []; let worldObjects = [];
     const solidCover = ['tree', 'wall', 'fence', 'pillar', 'well', 'statue', 'vending', 'tent', 'sign', 'cart', 'stall'];
     const destructibles = ['safe', 'barrel', 'crate', 'sack', 'log'];
     const hidingSpots = ['bush', 'grass', 'shroom', 'fire'];
 
-    // --- PLAYER CLASS ---
+    // --- PLAYER CLASS (WITH WALL SLIDING) ---
     class Player {
         constructor(x, y, spriteName) {
-            this.x = x; this.y = y; this.width = 100; this.height = 100; this.speed = 6;
-            this.spriteName = spriteName; 
-            this.name = ""; this.hp = 100; this.isDead = false;
-            
-            this.frameX = 0; this.frameY = 0; this.gameFrame = 0; this.staggerFrames = 5; 
-            this.facingRight = true; this.isMoving = false;
-            this.aimDir = { x: 1, y: 0 }; this.isAiming = false;
+            this.x = x; this.y = y; this.width = 100; this.height = 100; this.speed = 7; // Slightly faster
+            this.hitboxW = 40; this.hitboxH = 40; // Precise feet hitbox
+            this.spriteName = spriteName; this.name = ""; this.hp = 100; this.isDead = false;
+            this.frameX = 0; this.frameY = 0; this.gameFrame = 0; this.staggerFrames = 4; // Smoother animation
+            this.facingRight = true; this.isMoving = false; this.aimDir = { x: 1, y: 0 }; this.isAiming = false;
         }
 
         update(isActive) {
             if(this.isDead) return;
-
             let dx = 0; let dy = 0;
             
-            // Only the currently selected player can move
-            if (isActive) {
-                if(input.x !== 0 || input.y !== 0) { dx = input.x; dy = input.y; }
-            }
+            if (isActive && (input.x !== 0 || input.y !== 0)) { dx = input.x; dy = input.y; }
 
             this.isMoving = (dx !== 0 || dy !== 0);
 
@@ -165,69 +163,68 @@
                 let len = Math.sqrt(dx * dx + dy * dy); dx /= len; dy /= len; 
                 this.aimDir.x = dx; this.aimDir.y = dy;
                 
-                if (Math.abs(dx) > Math.abs(dy)) {
-                    this.frameY = 2; // Side
-                    if (dx > 0) this.facingRight = true; 
-                    if (dx < 0) this.facingRight = false;
-                } else if (dy > 0) { this.frameY = 0; } // Down
-                else if (dy < 0) { this.frameY = 1; } // Up
+                if (Math.abs(dx) > Math.abs(dy)) { this.frameY = 2; if (dx > 0) this.facingRight = true; if (dx < 0) this.facingRight = false; } 
+                else if (dy > 0) { this.frameY = 0; } else if (dy < 0) { this.frameY = 1; }
 
-                if(!this.isAiming) {
-                    this.gameFrame++;
-                    if (this.gameFrame % this.staggerFrames === 0) this.frameX = (this.frameX + 1) % 4;
-                } else { this.frameX = 0; }
-            } else { 
-                this.frameX = 0; this.gameFrame = 0; 
-            }
+                if(!this.isAiming) { this.gameFrame++; if (this.gameFrame % this.staggerFrames === 0) this.frameX = (this.frameX + 1) % 4; } 
+                else { this.frameX = 0; }
+            } else { this.frameX = 0; this.gameFrame = 0; }
 
             let moveSpeed = this.isAiming ? this.speed * 0.4 : this.speed; 
-            let nextX = this.x + dx * moveSpeed; let nextY = this.y + dy * moveSpeed;
             
-            let collision = false;
-            let pBox = { left: nextX - 20, right: nextX + 20, top: nextY - 15, bottom: nextY + 30 };
+            // PRO FIX: AXIS-SEPARATED COLLISION (WALL SLIDING)
+            this.x += dx * moveSpeed;
+            if (this.checkCollision()) this.x -= dx * moveSpeed; // Revert X only
+
+            this.y += dy * moveSpeed;
+            if (this.checkCollision()) this.y -= dy * moveSpeed; // Revert Y only
+        }
+
+        checkCollision() {
+            let pBox = { left: this.x - this.hitboxW/2, right: this.x + this.hitboxW/2, top: this.y + 10, bottom: this.y + 10 + this.hitboxH };
+            
+            // Map boundaries
+            if(pBox.left < 0 || pBox.right > MAP_SIZE*TILE_SIZE || pBox.top < 0 || pBox.bottom > MAP_SIZE*TILE_SIZE) return true;
 
             for (let obj of worldObjects) {
                 if (obj.isSolid) {
-                    let objBox = { left: obj.x, right: obj.x + obj.size, top: obj.y + (obj.size*0.4), bottom: obj.y + obj.size };
-                    if (pBox.right > objBox.left && pBox.left < objBox.right && pBox.bottom > objBox.top && pBox.top < objBox.bottom) { collision = true; break; }
+                    let objBox = { left: obj.x, right: obj.x + obj.size, top: obj.y + (obj.size*0.5), bottom: obj.y + obj.size };
+                    if (pBox.right > objBox.left && pBox.left < objBox.right && pBox.bottom > objBox.top && pBox.top < objBox.bottom) return true;
                 }
             }
-            // Map boundaries
-            if(nextX < 40 || nextX > (MAP_SIZE*TILE_SIZE)-40 || nextY < 40 || nextY > (MAP_SIZE*TILE_SIZE)-40) collision = true;
-
-            if (!collision) { this.x = nextX; this.y = nextY; }
+            return false;
         }
 
         draw(ctx) {
             if(this.isDead) return;
 
-            // Health Bar
-            ctx.fillStyle = "black"; ctx.fillRect(this.x - 30, this.y - 65, 60, 10);
-            ctx.fillStyle = this.hp > 50 ? "#2ecc71" : (this.hp > 20 ? "#f1c40f" : "#e74c3c");
-            ctx.fillRect(this.x - 29, this.y - 64, 58 * (this.hp/100), 8);
+            ctx.fillStyle = "rgba(0,0,0,0.8)"; ctx.fillRect(this.x - 32, this.y - 72, 64, 14);
+            ctx.fillStyle = this.hp > 50 ? "#00b894" : (this.hp > 25 ? "#fdcb6e" : "#d63031");
+            ctx.fillRect(this.x - 30, this.y - 70, 60 * (this.hp/100), 10);
             
-            // Name Tag
-            ctx.fillStyle = "white"; ctx.font = "bold 14px Arial"; ctx.textAlign = "center";
-            ctx.fillText(this.name, this.x, this.y - 75);
+            ctx.fillStyle = "white"; ctx.font = "bold 15px Nunito"; ctx.textAlign = "center";
+            ctx.shadowColor = "black"; ctx.shadowBlur = 4;
+            ctx.fillText(this.name, this.x, this.y - 82);
+            ctx.shadowBlur = 0;
 
-            // Shadow
-            ctx.fillStyle = "rgba(0,0,0,0.3)"; ctx.beginPath(); ctx.ellipse(this.x, this.y + 35, 30, 12, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "rgba(0,0,0,0.3)"; ctx.beginPath(); ctx.ellipse(this.x, this.y + 40, 25, 10, 0, 0, Math.PI * 2); ctx.fill();
             
             let img = images[this.spriteName];
-            if (img && img.complete && img.naturalWidth > 0) {
+            if (img && img.complete) {
                 let spriteW = img.width / 4; let spriteH = img.height / 3;
                 ctx.save(); ctx.translate(this.x, this.y);
                 if (!this.facingRight && this.frameY === 2) ctx.scale(-1, 1); 
+                // Subtle walk bounce
+                if(this.isMoving && !this.isAiming) ctx.translate(0, Math.sin(this.gameFrame/2)*2);
                 ctx.drawImage(img, this.frameX * spriteW, this.frameY * spriteH, spriteW, spriteH, -this.width / 2, -this.height / 2, this.width, this.height);
                 ctx.restore();
             }
         }
     }
 
-    // Initialize the two players far away from each other
     let p1 = new Player(4 * TILE_SIZE, 4 * TILE_SIZE, 'panda');
     let p2 = new Player((MAP_SIZE - 4) * TILE_SIZE, (MAP_SIZE - 4) * TILE_SIZE, 'fox');
-    let activePlayer = p1; // Start by controlling Panda
+    let activePlayer = p1; 
 
     // --- PRO MAP GENERATOR ---
     function generateMap() {
@@ -235,35 +232,23 @@
         for (let r = 0; r < MAP_SIZE; r++) {
             for (let c = 0; c < MAP_SIZE; c++) {
                 let x = c * TILE_SIZE; let y = r * TILE_SIZE;
-                
-                // Borders
                 if (r === 0 || r === MAP_SIZE - 1 || c === 0 || c === MAP_SIZE - 1) { 
-                    worldObjects.push({ type: 'tree', x: x, y: y, size: TILE_SIZE, isSolid: true, isHidingSpot: false });
-                    continue;
+                    worldObjects.push({ type: 'tree', x: x, y: y, size: TILE_SIZE, isSolid: true, isHidingSpot: false }); continue;
                 } 
-                
-                // Keep Spawn Zones completely clear (6x6 area for both corners)
-                if ((c < 8 && r < 8) || (c > MAP_SIZE - 8 && r > MAP_SIZE - 8)) {
-                    continue; 
-                }
+                // Ensure huge clear spawn zones
+                if ((c < 10 && r < 10) || (c > MAP_SIZE - 10 && r > MAP_SIZE - 10)) continue; 
 
-                // Generative clumps (Hide and Seek specific design)
                 let rand = Math.random();
-                if (rand > 0.95) {
-                    worldObjects.push({ type: destructibles[Math.floor(Math.random()*destructibles.length)], x: x, y: y, size: TILE_SIZE-15, isSolid: true, isHidingSpot: false, hasMoney: true });
-                } else if (rand > 0.88) {
-                    worldObjects.push({ type: hidingSpots[Math.floor(Math.random()*hidingSpots.length)], x: x, y: y, size: TILE_SIZE, isSolid: false, isHidingSpot: true, hasMoney: Math.random() > 0.5 }); 
-                } else if (rand > 0.82) {
-                    worldObjects.push({ type: solidCover[Math.floor(Math.random()*solidCover.length)], x: x, y: y, size: TILE_SIZE, isSolid: true, isHidingSpot: false, hasMoney: false });
-                }
+                if (rand > 0.96) worldObjects.push({ type: destructibles[Math.floor(Math.random()*destructibles.length)], x: x, y: y, size: TILE_SIZE-10, isSolid: true, isHidingSpot: false, hasMoney: true });
+                else if (rand > 0.90) worldObjects.push({ type: hidingSpots[Math.floor(Math.random()*hidingSpots.length)], x: x, y: y, size: TILE_SIZE, isSolid: false, isHidingSpot: true, hasMoney: Math.random() > 0.5 }); 
+                else if (rand > 0.84) worldObjects.push({ type: solidCover[Math.floor(Math.random()*solidCover.length)], x: x, y: y, size: TILE_SIZE, isSolid: true, isHidingSpot: false, hasMoney: false });
             }
         }
     }
 
-    // --- INPUT CONTROLS ---
+    // --- MOBILE JOYSTICK (REFINED) ---
     let input = { x: 0, y: 0 }; 
-    const joystickZone = document.getElementById('joystick-zone'); 
-    const joystickKnob = document.getElementById('joystick-knob');
+    const joystickZone = document.getElementById('joystick-zone'); const joystickKnob = document.getElementById('joystick-knob');
     let isDragging = false, joystickCenter = { x: 0, y: 0 }, touchId = null;
 
     joystickZone.addEventListener('touchstart', (e) => {
@@ -282,17 +267,9 @@
 
     window.addEventListener('touchend', (e) => {
         for (let i = 0; i < e.changedTouches.length; i++) {
-            if (e.changedTouches[i].identifier === touchId) {
-                isDragging = false; touchId = null; joystickKnob.style.transform = `translate(-50%, -50%)`; input = { x: 0, y: 0 }; break;
-            }
+            if (e.changedTouches[i].identifier === touchId) { isDragging = false; touchId = null; joystickKnob.style.transform = `translate(-50%, -50%)`; input = { x: 0, y: 0 }; break; }
         }
     });
-
-    joystickZone.addEventListener('mousedown', (e) => {
-        isDragging = true; let rect = joystickZone.getBoundingClientRect(); joystickCenter = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }; updateJoystick(e.clientX, e.clientY);
-    });
-    window.addEventListener('mousemove', (e) => { if (isDragging) updateJoystick(e.clientX, e.clientY); });
-    window.addEventListener('mouseup', () => { isDragging = false; joystickKnob.style.transform = `translate(-50%, -50%)`; input = { x: 0, y: 0 }; });
 
     function updateJoystick(clientX, clientY) { 
         let dx = clientX - joystickCenter.x; let dy = clientY - joystickCenter.y; 
@@ -302,232 +279,208 @@
         input.x = dx / maxRad; input.y = dy / maxRad; 
     }
 
-    function bindButton(id, callback) {
-        const btn = document.getElementById(id); const handler = (e) => { e.preventDefault(); callback(); };
-        btn.addEventListener('touchstart', handler, {passive: false}); btn.addEventListener('mousedown', handler);
-    }
-
+    // --- PREMIUM UI INTERACTIONS ---
     function showAlert(text, color) {
         const alertBox = document.getElementById('alert-text');
-        alertBox.innerText = text; alertBox.style.color = color; alertBox.style.opacity = 1; alertBox.style.top = "35%";
-        setTimeout(() => { alertBox.style.opacity = 0; alertBox.style.top = "40%"; }, 1200);
+        alertBox.innerText = text; alertBox.style.color = color; 
+        alertBox.classList.add('show-alert');
+        setTimeout(() => alertBox.classList.remove('show-alert'), 1500);
     }
 
     function updateHUD() {
         document.getElementById('game-hud').innerHTML = 
-            `<span style="color:#2ecc71">${p1.name} HP: ${p1.hp}</span> &nbsp;|&nbsp; <span style="color:#e67e22">${p2.name} HP: ${p2.hp}</span>`;
+            `<span style="color:#55efc4">${p1.name} <b style="color:white">${p1.hp}</b></span> &nbsp;&nbsp;|&nbsp;&nbsp; <span style="color:#fdcb6e">${p2.name} <b style="color:white">${p2.hp}</b></span>`;
     }
 
-    // Swap Control between Panda and Fox
-    bindButton('btn-swap', () => {
+    // Directly bound to HTML for foolproof mobile switching
+    window.handleSwap = function(e) {
+        e.preventDefault();
         activePlayer.isAiming = false; 
         document.getElementById('btn-shoot').classList.remove("aiming-mode");
         input = {x:0, y:0}; joystickKnob.style.transform = `translate(-50%, -50%)`;
 
         if(activePlayer === p1) {
             activePlayer = p2;
-            document.getElementById('btn-swap').innerText = "🦊 Playing Fox";
-            document.getElementById('btn-swap').style.background = "#e67e22";
-            document.getElementById('btn-swap').style.borderColor = "#d35400";
-            showAlert(`${p2.name}'s Turn!`, "#e67e22");
+            document.getElementById('btn-swap').innerHTML = "🦊 Play Fox";
+            document.getElementById('btn-swap').style.background = "linear-gradient(135deg, #e67e22, #d35400)";
+            showAlert(`TARGET: ${p1.name}`, "#e67e22");
         } else {
             activePlayer = p1;
-            document.getElementById('btn-swap').innerText = "🐼 Playing Panda";
-            document.getElementById('btn-swap').style.background = "#9b59b6";
-            document.getElementById('btn-swap').style.borderColor = "#8e44ad";
-            showAlert(`${p1.name}'s Turn!`, "#9b59b6");
+            document.getElementById('btn-swap').innerHTML = "🐼 Play Panda";
+            document.getElementById('btn-swap').style.background = "linear-gradient(135deg, #9b59b6, #8e44ad)";
+            showAlert(`TARGET: ${p2.name}`, "#9b59b6");
         }
-    });
+        // Pan camera smoothly
+        camera.shakeTime = 5; camera.shakeIntensity = 5;
+    };
 
-    bindButton('btn-search', () => {
+    window.handleSearch = function(e) {
+        e.preventDefault();
+        // Juice: Radar Ping
+        radarPings.push({ x: activePlayer.x, y: activePlayer.y, radius: 0, opacity: 1 });
+        
         let found = false;
         for (let obj of worldObjects) {
-            let objCenterX = obj.x + obj.size/2; let objCenterY = obj.y + obj.size/2;
-            let dist = Math.sqrt(Math.pow(objCenterX - activePlayer.x, 2) + Math.pow(objCenterY - activePlayer.y, 2));
-            if (dist < TILE_SIZE * 1.5 && (obj.isHidingSpot || obj.hasMoney !== undefined)) {
-                if (obj.hasMoney) { showAlert("💎 FOUND LOOT! 💎", "#3498db"); obj.hasMoney = false; } 
-                else { showAlert("Empty...", "#e74c3c"); }
+            let dist = Math.sqrt(Math.pow((obj.x + obj.size/2) - activePlayer.x, 2) + Math.pow((obj.y + obj.size/2) - activePlayer.y, 2));
+            if (dist < TILE_SIZE * 2 && (obj.isHidingSpot || obj.hasMoney !== undefined)) {
+                if (obj.hasMoney) { showAlert("💎 LOOT FOUND 💎", "#00cec9"); obj.hasMoney = false; } 
+                else { showAlert("EMPTY!", "#d63031"); }
                 found = true; break;
             }
         }
-        if (!found) showAlert("Nothing here!", "#f39c12");
-    });
+        if (!found) showAlert("CLEAR!", "#b2bec3");
+    };
 
-    bindButton('btn-shoot', () => {
+    window.handleShoot = function(e) {
+        e.preventDefault();
         const btn = document.getElementById('btn-shoot');
         if (!activePlayer.isAiming) {
             activePlayer.isAiming = true; btn.classList.add("aiming-mode");
         } else {
             activePlayer.isAiming = false; btn.classList.remove("aiming-mode");
             
-            if (shootAudio.readyState >= 2) { let sfx = shootAudio.cloneNode(); sfx.volume = 0.6; sfx.play().catch(()=>{}); }
+            if (shootAudio.readyState >= 2) { let sfx = shootAudio.cloneNode(); sfx.volume = 0.5; sfx.play().catch(()=>{}); }
 
-            let gunX = activePlayer.x + (activePlayer.facingRight ? 20 : -20); let gunY = activePlayer.y + 10;
+            // Juice: Recoil
+            activePlayer.x -= activePlayer.aimDir.x * 10;
+            activePlayer.y -= activePlayer.aimDir.y * 10;
+
+            let gunX = activePlayer.x + (activePlayer.facingRight ? 30 : -30); let gunY = activePlayer.y + 10;
             let hitX = gunX; let hitY = gunY; let hitObjIndex = -1; let hitOpponent = false;
-
             let targetPlayer = (activePlayer === p1) ? p2 : p1;
 
-            // PRECISION RAYCASTING (Stops exactly at the object)
-            for(let i=0; i<150; i++) { // 150 steps * 5px = 750px Range
-                hitX += activePlayer.aimDir.x * 5; 
-                hitY += activePlayer.aimDir.y * 5; 
+            for(let i=0; i<200; i++) { 
+                hitX += activePlayer.aimDir.x * 5; hitY += activePlayer.aimDir.y * 5; 
                 
-                // Check Hit on Enemy Player
-                if (!targetPlayer.isDead && hitX > targetPlayer.x - 20 && hitX < targetPlayer.x + 20 && hitY > targetPlayer.y - 15 && hitY < targetPlayer.y + 30) {
+                if (!targetPlayer.isDead && hitX > targetPlayer.x - 30 && hitX < targetPlayer.x + 30 && hitY > targetPlayer.y - 20 && hitY < targetPlayer.y + 40) {
                     hitOpponent = true; break;
                 }
 
-                // Check Hit on World Objects
                 let collided = false;
                 for (let j=0; j < worldObjects.length; j++) {
                     let obj = worldObjects[j];
                     if (obj.isSolid || obj.isHidingSpot) {
-                        if (hitX > obj.x && hitX < obj.x + obj.size && hitY > obj.y && hitY < obj.y + obj.size) { 
+                        if (hitX > obj.x && hitX < obj.x + obj.size && hitY > obj.y + 10 && hitY < obj.y + obj.size) { 
                             hitObjIndex = j; collided = true; break; 
                         }
                     }
                 }
-                if (collided) break; // Stop Laser exactly at the wall
+                if (collided) break; 
             }
 
-            camera.shakeTime = 12; camera.shakeIntensity = 25; 
-            explosions.push({ x: hitX, y: hitY, radius: 10, maxRadius: 50, life: 1.0 });
+            camera.shakeTime = 10; camera.shakeIntensity = 15; 
+            explosions.push({ x: hitX, y: hitY, radius: 10, maxRadius: 40, life: 1.0 });
 
             if (hitOpponent) {
-                targetPlayer.hp -= 25; // Take 25 damage
-                updateHUD();
+                targetPlayer.hp -= 25; updateHUD();
                 if(targetPlayer.hp <= 0) {
-                    targetPlayer.isDead = true;
-                    showAlert(`🏆 ${activePlayer.name} WINS! 🏆`, "#f1c40f");
+                    targetPlayer.isDead = true; showAlert(`🏆 ${activePlayer.name} WINS! 🏆`, "#fdcb6e");
                 } else {
-                    showAlert("🎯 DIRECT HIT! 🎯", "#e74c3c");
+                    showAlert("💥 DIRECT HIT! 💥", "#ff7675");
                 }
             } else if (hitObjIndex !== -1) {
                 let target = worldObjects[hitObjIndex];
                 if (!solidCover.includes(target.type)) {
-                    if (target.hasMoney) showAlert("💰 LOOT DESTROYED! 💰", "#2ecc71");
-                    else showAlert("Boom!", "#e74c3c");
+                    if (target.hasMoney) showAlert("💰 SAFE BLOWN! 💰", "#55efc4");
                     worldObjects.splice(hitObjIndex, 1); 
-                } else {
-                    showAlert("Blocked by Wall!", "#bdc3c7");
                 }
             }
         }
-    });
+    };
 
-    // --- GAME START LOGIC ---
-    function startGame() {
+    // --- STARTUP ---
+    window.startGame = function() {
         let n1 = document.getElementById('p1-name').value.trim();
         let n2 = document.getElementById('p2-name').value.trim();
-        p1.name = n1 === "" ? "Panda" : n1;
-        p2.name = n2 === "" ? "Fox" : n2;
+        p1.name = n1 === "" ? "Panda" : n1; p2.name = n2 === "" ? "Fox" : n2;
         
         document.getElementById('setup-screen').style.display = 'none';
         document.getElementById('ui-layer').style.display = 'block';
         
-        generateMap();
-        updateHUD();
-        
-        // Immediately snap camera to active player on start
-        camera.x = activePlayer.x - canvas.width / 2;
-        camera.y = activePlayer.y - canvas.height / 2;
-
+        generateMap(); updateHUD();
+        camera.x = activePlayer.x - canvas.width / 2; camera.y = activePlayer.y - canvas.height / 2;
         requestAnimationFrame(gameLoop);
-    }
+    };
 
-    // --- RENDER LOOP (WITH FRUSTUM CULLING) ---
+    // --- RENDER PIPELINE ---
     function gameLoop() {
-        ctx.fillStyle = '#6ab04c'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        // Soft gradient dirt floor
+        let grad = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+        grad.addColorStop(0, '#2d3436'); grad.addColorStop(1, '#1e272e');
+        ctx.fillStyle = grad; ctx.fillRect(0, 0, canvas.width, canvas.height);
         
-        p1.update(activePlayer === p1);
-        p2.update(activePlayer === p2);
+        p1.update(activePlayer === p1); p2.update(activePlayer === p2);
 
-        // Smooth Camera Panning to Active Player
         let targetCamX = activePlayer.x - canvas.width / 2; let targetCamY = activePlayer.y - canvas.height / 2;
         if(camera.shakeTime > 0) { targetCamX += (Math.random() - 0.5) * camera.shakeIntensity; targetCamY += (Math.random() - 0.5) * camera.shakeIntensity; camera.shakeTime--; }
         camera.x += (targetCamX - camera.x) * 0.1; camera.y += (targetCamY - camera.y) * 0.1;
 
         ctx.save(); ctx.translate(-Math.floor(camera.x), -Math.floor(camera.y));
 
-        // Viewport boundaries for Culling (MASSIVE performance boost)
-        let screenLeft = camera.x - TILE_SIZE;
-        let screenRight = camera.x + canvas.width + TILE_SIZE;
-        let screenTop = camera.y - TILE_SIZE;
-        let screenBottom = camera.y + canvas.height + TILE_SIZE*2;
+        let screenLeft = camera.x - TILE_SIZE; let screenRight = camera.x + canvas.width + TILE_SIZE;
+        let screenTop = camera.y - TILE_SIZE; let screenBottom = camera.y + canvas.height + TILE_SIZE*2;
 
-        // Draw Ground Grid (Only what's on screen)
-        let startCol = Math.max(0, Math.floor(camera.x / TILE_SIZE));
-        let endCol = Math.min(MAP_SIZE, Math.ceil((camera.x + canvas.width) / TILE_SIZE));
-        let startRow = Math.max(0, Math.floor(camera.y / TILE_SIZE));
-        let endRow = Math.min(MAP_SIZE, Math.ceil((camera.y + canvas.height) / TILE_SIZE));
-
-        for (let r = startRow; r < endRow; r++) { 
-            for (let c = startCol; c < endCol; c++) { 
-                if ((r+c)%2===0) { ctx.fillStyle = "rgba(0,0,0,0.05)"; ctx.fillRect(c*TILE_SIZE, r*TILE_SIZE, TILE_SIZE, TILE_SIZE); } 
-            } 
-        }
+        // Draw Ground Grid (Grass vibe)
+        ctx.fillStyle = "rgba(46, 204, 113, 0.03)";
+        let startCol = Math.max(0, Math.floor(camera.x / TILE_SIZE)); let endCol = Math.min(MAP_SIZE, Math.ceil((camera.x + canvas.width) / TILE_SIZE));
+        let startRow = Math.max(0, Math.floor(camera.y / TILE_SIZE)); let endRow = Math.min(MAP_SIZE, Math.ceil((camera.y + canvas.height) / TILE_SIZE));
+        for (let r = startRow; r < endRow; r++) { for (let c = startCol; c < endCol; c++) { if ((r+c)%2===0) ctx.fillRect(c*TILE_SIZE, r*TILE_SIZE, TILE_SIZE, TILE_SIZE); } }
 
         let renderQueue = [];
         if(!p1.isDead) renderQueue.push({ type: 'player', y: p1.y + (p1.height*0.4), obj: p1 });
         if(!p2.isDead) renderQueue.push({ type: 'player', y: p2.y + (p2.height*0.4), obj: p2 });
         
         for(let obj of worldObjects) { 
-            // CULLING CHECK: Skip drawing if it's outside the camera view!
             if (obj.x > screenRight || obj.x + obj.size < screenLeft || obj.y > screenBottom || obj.y + obj.size * 2 < screenTop) continue;
-
             let visualY = obj.y + obj.size; 
             if(obj.type === 'stall' || obj.type === 'tree' || obj.type === 'tent') visualY = obj.y + (obj.size * 1.2); 
             renderQueue.push({ type: 'world', y: visualY, obj: obj }); 
         }
-        
         renderQueue.sort((a, b) => a.y - b.y);
 
         for(let item of renderQueue) {
             if(item.type === 'player') item.obj.draw(ctx);
             else {
                 let wObj = item.obj; 
-                if(!wObj.isHidingSpot) { 
-                    ctx.fillStyle = "rgba(0,0,0,0.3)"; ctx.beginPath(); ctx.ellipse(wObj.x + wObj.size/2, wObj.y + wObj.size - 10, wObj.size*0.4, wObj.size*0.15, 0, 0, Math.PI * 2); ctx.fill(); 
-                }
+                if(!wObj.isHidingSpot) { ctx.fillStyle = "rgba(0,0,0,0.4)"; ctx.beginPath(); ctx.ellipse(wObj.x + wObj.size/2, wObj.y + wObj.size - 5, wObj.size*0.45, wObj.size*0.15, 0, 0, Math.PI * 2); ctx.fill(); }
                 if(images[wObj.type] && images[wObj.type].complete) {
-                    let drawSize = wObj.size; let drawX = wObj.x; let drawY = wObj.y;
-                    if(['tree', 'stall', 'tent', 'statue'].includes(wObj.type)) { drawSize = wObj.size * 1.3; drawX = wObj.x - 10; drawY = wObj.y - 20; }
-                    ctx.drawImage(images[wObj.type], drawX, drawY, drawSize, drawSize);
+                    let dSize = wObj.size; let dX = wObj.x; let dY = wObj.y;
+                    if(['tree', 'stall', 'tent', 'statue'].includes(wObj.type)) { dSize = wObj.size * 1.4; dX = wObj.x - 15; dY = wObj.y - 30; }
+                    ctx.drawImage(images[wObj.type], dX, dY, dSize, dSize);
                 }
             }
         }
 
-        // Draw Laser perfectly snapping to target
+        // Draw Radar Pings
+        for(let i = radarPings.length - 1; i >= 0; i--) {
+            let p = radarPings[i];
+            ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+            ctx.lineWidth = 4; ctx.strokeStyle = `rgba(0, 206, 201, ${p.opacity})`; ctx.stroke();
+            p.radius += 10; p.opacity -= 0.02; if(p.opacity <= 0) radarPings.splice(i, 1);
+        }
+
+        // Draw Laser 
         if (activePlayer.isAiming && !activePlayer.isDead) {
-            let gunX = activePlayer.x + (activePlayer.facingRight ? 20 : -20); let gunY = activePlayer.y + 10;
-            let laserX = gunX; let laserY = gunY;
-            let targetPlayer = (activePlayer === p1) ? p2 : p1;
+            let gunX = activePlayer.x + (activePlayer.facingRight ? 30 : -30); let gunY = activePlayer.y + 10;
+            let lX = gunX; let lY = gunY; let tP = (activePlayer === p1) ? p2 : p1;
 
-            for(let i=0; i<150; i++) { 
-                laserX += activePlayer.aimDir.x * 5; laserY += activePlayer.aimDir.y * 5; 
-                let hit = false;
-                
-                // Laser preview hits opponent
-                if (!targetPlayer.isDead && laserX > targetPlayer.x-20 && laserX < targetPlayer.x+20 && laserY > targetPlayer.y-15 && laserY < targetPlayer.y+30) hit = true;
-                
-                // Laser preview hits wall
-                for (let obj of worldObjects) { 
-                    if ((obj.isSolid || obj.isHidingSpot) && laserX > obj.x && laserX < obj.x + obj.size && laserY > obj.y && laserY < obj.y + obj.size) { hit = true; break; } 
-                }
-                if (hit) break; // Terminate laser rendering right here!
+            for(let i=0; i<200; i++) { 
+                lX += activePlayer.aimDir.x * 5; lY += activePlayer.aimDir.y * 5; let hit = false;
+                if (!tP.isDead && lX > tP.x-30 && lX < tP.x+30 && lY > tP.y-20 && lY < tP.y+40) hit = true;
+                for (let obj of worldObjects) { if ((obj.isSolid || obj.isHidingSpot) && lX > obj.x && lX < obj.x + obj.size && lY > obj.y+10 && lY < obj.y + obj.size) { hit = true; break; } }
+                if (hit) break; 
             }
-            
-            // Draw sleek laser beam
-            ctx.beginPath(); ctx.moveTo(gunX, gunY); ctx.lineTo(laserX, laserY); ctx.strokeStyle = "rgba(231, 76, 60, 0.5)"; ctx.lineWidth = 2; ctx.stroke(); 
-            ctx.beginPath(); ctx.setLineDash([10, 10]); ctx.moveTo(gunX, gunY); ctx.lineTo(laserX, laserY); ctx.strokeStyle = "rgba(255, 0, 0, 0.9)"; ctx.lineWidth = 4; ctx.stroke(); ctx.setLineDash([]);
-            ctx.beginPath(); ctx.arc(laserX, laserY, 8, 0, Math.PI * 2); ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.stroke(); ctx.fillStyle = "rgba(231, 76, 60, 0.8)"; ctx.fill();
+            ctx.beginPath(); ctx.moveTo(gunX, gunY); ctx.lineTo(lX, lY); ctx.strokeStyle = "rgba(255, 118, 117, 0.4)"; ctx.lineWidth = 3; ctx.stroke(); 
+            ctx.beginPath(); ctx.setLineDash([15, 15]); ctx.moveTo(gunX, gunY); ctx.lineTo(lX, lY); ctx.strokeStyle = "#ff7675"; ctx.lineWidth = 2; ctx.stroke(); ctx.setLineDash([]);
+            ctx.beginPath(); ctx.arc(lX, lY, 6, 0, Math.PI * 2); ctx.fillStyle = "#fff"; ctx.fill(); ctx.shadowBlur = 10; ctx.shadowColor = "#ff7675"; ctx.arc(lX, lY, 12, 0, Math.PI * 2); ctx.fillStyle = "rgba(255, 118, 117, 0.5)"; ctx.fill(); ctx.shadowBlur = 0;
         }
 
+        // Draw Explosions
         for (let i = explosions.length - 1; i >= 0; i--) {
             let exp = explosions[i];
-            ctx.beginPath(); ctx.arc(exp.x, exp.y, exp.radius, 0, Math.PI * 2); ctx.fillStyle = `rgba(241, 196, 15, ${exp.life})`; ctx.fill();
-            ctx.beginPath(); ctx.arc(exp.x, exp.y, exp.radius * 0.7, 0, Math.PI * 2); ctx.fillStyle = `rgba(231, 76, 60, ${exp.life})`; ctx.fill();
-            exp.radius += 6; exp.life -= 0.1; if (exp.life <= 0) explosions.splice(i, 1);
+            ctx.beginPath(); ctx.arc(exp.x, exp.y, exp.radius, 0, Math.PI * 2); ctx.fillStyle = `rgba(253, 203, 110, ${exp.life})`; ctx.fill();
+            ctx.beginPath(); ctx.arc(exp.x, exp.y, exp.radius * 0.6, 0, Math.PI * 2); ctx.fillStyle = `rgba(214, 48, 49, ${exp.life})`; ctx.fill();
+            exp.radius += 8; exp.life -= 0.08; if (exp.life <= 0) explosions.splice(i, 1);
         }
 
         ctx.restore(); requestAnimationFrame(gameLoop);
