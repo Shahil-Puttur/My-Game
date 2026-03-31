@@ -91,9 +91,8 @@
     </div>
 
 <script>
-    // --- CORE SETUP ---
     const canvas = document.getElementById('gameCanvas'); 
-    const ctx = canvas.getContext('2d', { alpha: false }); // Optimization: Disables transparent background processing
+    const ctx = canvas.getContext('2d', { alpha: false }); 
     
     function resize() { 
         canvas.width = window.innerWidth; 
@@ -111,7 +110,7 @@
         statue: 'Animal Statue.png', barrel: 'Wooden Barrels.png', safe: 'Metal Safe.png', crate: 'Supply Crate.png', vending: 'Vending Machine.png', sack: 'Loot Sack.png', 
         tent: 'Camping Tent.png', fire: 'Campfire.png', sign: 'Signpost.png', cart: 'Broken Cart.png', stall: 'Market Stall.png'
     };
-    const totalAssets = Object.keys(assetList).length + 1; // +1 for Audio
+    const totalAssets = Object.keys(assetList).length + 1;
 
     function assetCheck() {
         assetsLoaded++; 
@@ -127,14 +126,11 @@
         }
     }
 
-    // Audio preloading & pooling (Ensures multiple shots play smoothly)
     const audioPool = [];
     const shootAudio = new Audio('shoot.mp3'); 
     shootAudio.oncanplaythrough = assetCheck; 
-    shootAudio.onerror = assetCheck; // Fallback so game loads even if audio fails
-    for(let i=0; i<5; i++) {
-        audioPool.push(shootAudio.cloneNode());
-    }
+    shootAudio.onerror = assetCheck; 
+    for(let i=0; i<5; i++) audioPool.push(shootAudio.cloneNode());
     let audioIndex = 0;
     
     function playShootSound() {
@@ -157,7 +153,6 @@
         images[key] = img;
     }
 
-    // --- GRID OPTIMIZATION (Offscreen Canvas) ---
     const TILE_SIZE = 80; 
     const gridCanvas = document.createElement('canvas');
     gridCanvas.width = TILE_SIZE * 2;
@@ -168,20 +163,19 @@
     gctx.fillRect(TILE_SIZE, TILE_SIZE, TILE_SIZE, TILE_SIZE);
     const gridPattern = ctx.createPattern(gridCanvas, 'repeat');
 
-    // --- CONSTANTS & GAME STATE ---
-    const MAP_SIZE = 35;
+    // --- GAME CONSTANTS (SHRUNK MAP FOR BETTER PACING) ---
+    const MAP_SIZE = 22; // Reduced from 35 to prevent getting lost
     const MAP_PIXEL_SIZE = MAP_SIZE * TILE_SIZE;
     let camera = { x: 0, y: 0, shakeTime: 0, shakeIntensity: 0 }; 
     const explosions = []; 
     const radarPings = []; 
     let worldObjects = [];
-    const renderQueue = []; // Pre-allocated array for optimized rendering
+    const renderQueue = []; 
 
     const solidCover = ['tree', 'wall', 'fence', 'pillar', 'well', 'statue', 'vending', 'tent', 'sign', 'cart', 'stall'];
     const destructibles = ['safe', 'barrel', 'crate', 'sack', 'log'];
     const hidingSpots = ['bush', 'grass', 'shroom', 'fire'];
 
-    // --- INPUT MANAGEMENT (Cross-Platform) ---
     const input = { x: 0, y: 0 };
     const keys = {};
 
@@ -211,10 +205,7 @@
     window.addEventListener('touchmove', (e) => {
         if (!isDragging) return;
         for (let i = 0; i < e.changedTouches.length; i++) {
-            if (e.changedTouches[i].identifier === touchId) { 
-                updateJoystick(e.changedTouches[i].clientX, e.changedTouches[i].clientY); 
-                break; 
-            }
+            if (e.changedTouches[i].identifier === touchId) { updateJoystick(e.changedTouches[i].clientX, e.changedTouches[i].clientY); break; }
         }
     }, {passive: false});
 
@@ -245,8 +236,8 @@
         constructor(x, y, spriteName) {
             this.x = x; this.y = y; 
             this.width = 100; this.height = 100; 
-            this.speed = 420; // 420 pixels per second
-            this.hitboxW = 40; this.hitboxH = 30; 
+            this.speed = 420; 
+            this.hitboxW = 30; this.hitboxH = 25; // Smaller hitbox prevents tunneling
             this.spriteName = spriteName; this.name = ""; 
             this.hp = 100; this.isDead = false;
             this.frameX = 0; this.frameY = 0; this.gameFrame = 0; 
@@ -260,7 +251,6 @@
             
             let dx = 0; let dy = 0;
             
-            // Combine touch joystick and keyboard inputs
             if (isActive) {
                 if (input.x !== 0 || input.y !== 0) {
                     dx = input.x; dy = input.y;
@@ -275,64 +265,49 @@
             this.isMoving = (dx !== 0 || dy !== 0);
 
             if (this.isMoving) { 
-                // Normalize diagonal movement
                 let len = Math.sqrt(dx * dx + dy * dy); 
                 dx /= len; dy /= len; 
                 this.aimDir.x = dx; this.aimDir.y = dy;
                 
                 let angle = Math.atan2(dy, dx) * (180 / Math.PI);
-                
-                if (angle > -45 && angle <= 45) { // Right
-                    this.frameY = 2; this.facingRight = true;
-                } else if (angle > 45 && angle <= 135) { // Down
-                    this.frameY = 0; 
-                } else if (angle > 135 || angle <= -135) { // Left
-                    this.frameY = 2; this.facingRight = false;
-                } else if (angle > -135 && angle <= -45) { // Up
-                    this.frameY = 1; 
-                }
+                if (angle > -45 && angle <= 45) { this.frameY = 2; this.facingRight = true; } 
+                else if (angle > 45 && angle <= 135) { this.frameY = 0; } 
+                else if (angle > 135 || angle <= -135) { this.frameY = 2; this.facingRight = false; } 
+                else if (angle > -135 && angle <= -45) { this.frameY = 1; }
 
                 if(!this.isAiming) { 
-                    this.gameFrame += dt * 60; // Scale frame rate strictly to dt
+                    this.gameFrame += dt * 60; 
                     if (Math.floor(this.gameFrame) % this.staggerFrames === 0) {
                         this.frameX = (Math.floor(this.gameFrame / this.staggerFrames)) % 4; 
                     }
-                } else { 
-                    this.frameX = 0; 
-                }
-            } else { 
-                this.frameX = 0; this.gameFrame = 0; 
-            }
+                } else { this.frameX = 0; }
+            } else { this.frameX = 0; this.gameFrame = 0; }
 
             let moveSpeed = this.isAiming ? this.speed * 0.4 : this.speed; 
             
-            // Slide Collision Logic using Delta Time
+            // --- STRICT AXIS-SEPARATED COLLISION (Never get stuck on corners) ---
+            let prevX = this.x;
             this.x += dx * moveSpeed * dt; 
-            if (this.checkCollision()) this.x -= dx * moveSpeed * dt; 
+            if (this.checkCollision()) this.x = prevX; 
             
+            let prevY = this.y;
             this.y += dy * moveSpeed * dt; 
-            if (this.checkCollision()) this.y -= dy * moveSpeed * dt; 
+            if (this.checkCollision()) this.y = prevY; 
         }
 
         checkCollision() {
             let pBox = { 
                 left: this.x - this.hitboxW/2, right: this.x + this.hitboxW/2, 
-                top: this.y + 15, bottom: this.y + 15 + this.hitboxH 
+                top: this.y + 10, bottom: this.y + 10 + this.hitboxH 
             };
             
-            // Map Bounds
             if(pBox.left < 0 || pBox.right > MAP_PIXEL_SIZE || pBox.top < 0 || pBox.bottom > MAP_PIXEL_SIZE) return true;
             
-            // Object Collision
             for (let i = 0; i < worldObjects.length; i++) {
                 let obj = worldObjects[i];
                 if (obj.isSolid) {
-                    let objBox = { 
-                        left: obj.x, right: obj.x + obj.size, 
-                        top: obj.y + (obj.size*0.5), bottom: obj.y + obj.size 
-                    };
-                    if (pBox.right > objBox.left && pBox.left < objBox.right && 
-                        pBox.bottom > objBox.top && pBox.top < objBox.bottom) return true;
+                    let objBox = { left: obj.x, right: obj.x + obj.size, top: obj.y + (obj.size*0.5), bottom: obj.y + obj.size };
+                    if (pBox.right > objBox.left && pBox.left < objBox.right && pBox.bottom > objBox.top && pBox.top < objBox.bottom) return true;
                 }
             }
             return false;
@@ -340,37 +315,23 @@
 
         draw(ctx) {
             if(this.isDead) return;
-            
-            // Shadow
-            ctx.fillStyle = "rgba(0,0,0,0.2)"; 
-            ctx.beginPath(); 
-            ctx.ellipse(this.x, this.y + 40, 25, 10, 0, 0, Math.PI * 2); 
-            ctx.fill();
-            
+            ctx.fillStyle = "rgba(0,0,0,0.2)"; ctx.beginPath(); ctx.ellipse(this.x, this.y + 40, 25, 10, 0, 0, Math.PI * 2); ctx.fill();
             let img = images[this.spriteName];
             if (img && img.complete) {
-                let spriteW = img.width / 4; 
-                let spriteH = img.height / 3;
-                
-                ctx.save(); 
-                ctx.translate(this.x, this.y);
+                let spriteW = img.width / 4; let spriteH = img.height / 3;
+                ctx.save(); ctx.translate(this.x, this.y);
                 if (!this.facingRight && this.frameY === 2) ctx.scale(-1, 1); 
                 if (this.isMoving && !this.isAiming) ctx.translate(0, Math.sin(this.gameFrame*0.5)*2);
-                
-                ctx.drawImage(img, 
-                    this.frameX * spriteW, this.frameY * spriteH, spriteW, spriteH, 
-                    -this.width / 2, -this.height / 2, this.width, this.height
-                );
+                ctx.drawImage(img, this.frameX * spriteW, this.frameY * spriteH, spriteW, spriteH, -this.width / 2, -this.height / 2, this.width, this.height);
                 ctx.restore();
             }
         }
     }
 
-    let p1 = new Player(4 * TILE_SIZE, 4 * TILE_SIZE, 'panda');
+    let p1 = new Player(3 * TILE_SIZE, 3 * TILE_SIZE, 'panda');
     let p2 = new Player((MAP_SIZE - 4) * TILE_SIZE, (MAP_SIZE - 4) * TILE_SIZE, 'fox');
     let activePlayer = p1; 
 
-    // --- MAP GENERATOR ---
     function generateMap() {
         worldObjects = [];
         for (let r = 0; r < MAP_SIZE; r++) {
@@ -382,12 +343,13 @@
                     worldObjects.push({ type: 'tree', x: x, y: y, size: TILE_SIZE, isSolid: true, isHidingSpot: false }); 
                     continue;
                 } 
-                if ((c < 6 && r < 6) || (c > MAP_SIZE - 6 && r > MAP_SIZE - 6)) continue; 
+                // Increased safe zones at spawn corners
+                if ((c < 5 && r < 5) || (c > MAP_SIZE - 6 && r > MAP_SIZE - 6)) continue; 
 
                 let rand = Math.random();
-                if (rand > 0.97) worldObjects.push({ type: destructibles[Math.floor(Math.random()*destructibles.length)], x: x, y: y, size: TILE_SIZE-10, isSolid: true, isHidingSpot: false, hasMoney: true });
-                else if (rand > 0.92) worldObjects.push({ type: hidingSpots[Math.floor(Math.random()*hidingSpots.length)], x: x, y: y, size: TILE_SIZE, isSolid: false, isHidingSpot: true, hasMoney: Math.random() > 0.5 }); 
-                else if (rand > 0.88) worldObjects.push({ type: solidCover[Math.floor(Math.random()*solidCover.length)], x: x, y: y, size: TILE_SIZE, isSolid: true, isHidingSpot: false, hasMoney: false });
+                if (rand > 0.96) worldObjects.push({ type: destructibles[Math.floor(Math.random()*destructibles.length)], x: x, y: y, size: TILE_SIZE-10, isSolid: true, isHidingSpot: false, hasMoney: true });
+                else if (rand > 0.90) worldObjects.push({ type: hidingSpots[Math.floor(Math.random()*hidingSpots.length)], x: x, y: y, size: TILE_SIZE, isSolid: false, isHidingSpot: true, hasMoney: Math.random() > 0.5 }); 
+                else if (rand > 0.85) worldObjects.push({ type: solidCover[Math.floor(Math.random()*solidCover.length)], x: x, y: y, size: TILE_SIZE, isSolid: true, isHidingSpot: false, hasMoney: false });
             }
         }
     }
@@ -397,10 +359,11 @@
         const alertBox = document.getElementById('alert-text');
         alertBox.innerText = text; 
         alertBox.style.color = color; 
-        alertBox.classList.remove('show-alert'); // Force reflow for spam-clicking
+        alertBox.classList.remove('show-alert'); 
         void alertBox.offsetWidth; 
         alertBox.classList.add('show-alert');
-        setTimeout(() => alertBox.classList.remove('show-alert'), 1200);
+        if (window.alertTimeout) clearTimeout(window.alertTimeout);
+        window.alertTimeout = setTimeout(() => alertBox.classList.remove('show-alert'), 1200);
     }
 
     function updateHUD() {
@@ -408,8 +371,11 @@
         document.getElementById('hud-p2').innerHTML = `<span style="color:#e74c3c">${p2.name}</span> <span class="hp-text">${Math.max(0, p2.hp)} HP</span>`;
     }
 
+    let lastSwapTime = 0;
     function handleSwap() {
         if(p1.isDead || p2.isDead) return;
+        if(Date.now() - lastSwapTime < 300) return; // Debounce to stop double-firing glitches
+        lastSwapTime = Date.now();
         
         activePlayer.isAiming = false; 
         document.getElementById('btn-shoot').classList.remove("aiming-mode");
@@ -460,7 +426,6 @@
             activePlayer.isAiming = false; btn.classList.remove("aiming-mode");
             playShootSound();
 
-            // Recoil
             activePlayer.x -= activePlayer.aimDir.x * 10;
             activePlayer.y -= activePlayer.aimDir.y * 10;
 
@@ -472,20 +437,16 @@
             let hitOpponent = false;
             let targetPlayer = (activePlayer === p1) ? p2 : p1;
 
-            // Raycast Step Loop
             for(let i=0; i<200; i++) { 
                 hitX += activePlayer.aimDir.x * 5; 
                 hitY += activePlayer.aimDir.y * 5; 
                 
-                // Early exit if bullet leaves bounds
                 if (hitX < 0 || hitX > MAP_PIXEL_SIZE || hitY < 0 || hitY > MAP_PIXEL_SIZE) break;
 
-                // Hit Player
                 if (!targetPlayer.isDead && hitX > targetPlayer.x - 30 && hitX < targetPlayer.x + 30 && hitY > targetPlayer.y - 20 && hitY < targetPlayer.y + 40) {
                     hitOpponent = true; break;
                 }
 
-                // Hit Environment
                 let collided = false;
                 for (let j=0; j < worldObjects.length; j++) {
                     let obj = worldObjects[j];
@@ -520,13 +481,15 @@
         }
     }
 
-    // Attach Event Listeners Safely
-    document.getElementById('btn-swap').addEventListener('mousedown', handleSwap);
-    document.getElementById('btn-swap').addEventListener('touchstart', (e)=>{ e.preventDefault(); handleSwap(); }, {passive: false});
-    document.getElementById('btn-search').addEventListener('mousedown', handleSearch);
-    document.getElementById('btn-search').addEventListener('touchstart', (e)=>{ e.preventDefault(); handleSearch(); }, {passive: false});
-    document.getElementById('btn-shoot').addEventListener('mousedown', handleShoot);
-    document.getElementById('btn-shoot').addEventListener('touchstart', (e)=>{ e.preventDefault(); handleShoot(); }, {passive: false});
+    // Modern unified pointer events (prevents mobile ghost-clicking and double firing)
+    function bindButton(id, callback) {
+        document.getElementById(id).addEventListener('pointerdown', (e) => {
+            e.preventDefault(); callback();
+        });
+    }
+    bindButton('btn-swap', handleSwap);
+    bindButton('btn-search', handleSearch);
+    bindButton('btn-shoot', handleShoot);
 
     document.getElementById('btn-start').addEventListener('click', () => {
         let n1 = document.getElementById('p1-name').value.trim();
@@ -551,9 +514,8 @@
     let lastTime = 0;
 
     function gameLoop(timestamp) {
-        // Delta Time calculation (caps at 0.1s to prevent lag spikes breaking collision)
         let dt = (timestamp - lastTime) / 1000;
-        if(dt > 0.1) dt = 0.1; 
+        if(dt > 0.05) dt = 0.05; // Strict cap prevents physics tunneling from lag spikes
         lastTime = timestamp;
 
         ctx.fillStyle = '#6ab04c'; 
@@ -569,8 +531,11 @@
             targetCamY += (Math.random() - 0.5) * camera.shakeIntensity; 
             camera.shakeTime -= dt * 60; 
         }
-        camera.x += (targetCamX - camera.x) * (dt * 6); // Smooth damping via dt
-        camera.y += (targetCamY - camera.y) * (dt * 6);
+        
+        let camLerp = dt * 6;
+        if(camLerp > 1) camLerp = 1; // Prevents camera overshoot explosion
+        camera.x += (targetCamX - camera.x) * camLerp;
+        camera.y += (targetCamY - camera.y) * camLerp;
 
         ctx.save(); 
         ctx.translate(-Math.floor(camera.x), -Math.floor(camera.y));
@@ -580,22 +545,19 @@
         let screenTop = camera.y - TILE_SIZE; 
         let screenBottom = camera.y + canvas.height + TILE_SIZE*2;
 
-        // O(1) Fast Grid Pattern Rendering
         ctx.fillStyle = gridPattern;
         ctx.save();
         ctx.translate(Math.floor(camera.x) - (Math.floor(camera.x) % (TILE_SIZE*2)), Math.floor(camera.y) - (Math.floor(camera.y) % (TILE_SIZE*2)));
         ctx.fillRect(0, 0, canvas.width + TILE_SIZE*4, canvas.height + TILE_SIZE*4);
         ctx.restore();
 
-        // Optimized Render Queue Construction
-        renderQueue.length = 0; // Clears memory without GC overhead
+        renderQueue.length = 0; 
         
         if(!p1.isDead) renderQueue.push({ type: 'player', y: p1.y + (p1.height*0.4), obj: p1 });
         if(!p2.isDead) renderQueue.push({ type: 'player', y: p2.y + (p2.height*0.4), obj: p2 });
         
         for(let i = 0; i < worldObjects.length; i++) { 
             let obj = worldObjects[i];
-            // Culling (Don't draw offscreen objects)
             if (obj.x > screenRight || obj.x + obj.size < screenLeft || obj.y > screenBottom || obj.y + obj.size * 2 < screenTop) continue;
             
             let visualY = obj.y + obj.size; 
@@ -605,40 +567,30 @@
         
         renderQueue.sort((a, b) => a.y - b.y);
 
-        // Execute Render Queue
         for(let i=0; i<renderQueue.length; i++) {
             let item = renderQueue[i];
             if(item.type === 'player') item.obj.draw(ctx);
             else {
                 let wObj = item.obj; 
                 if(!wObj.isHidingSpot) { 
-                    ctx.fillStyle = "rgba(0,0,0,0.2)"; 
-                    ctx.beginPath(); 
-                    ctx.ellipse(wObj.x + wObj.size/2, wObj.y + wObj.size - 5, wObj.size*0.45, wObj.size*0.15, 0, 0, Math.PI * 2); 
-                    ctx.fill(); 
+                    ctx.fillStyle = "rgba(0,0,0,0.2)"; ctx.beginPath(); ctx.ellipse(wObj.x + wObj.size/2, wObj.y + wObj.size - 5, wObj.size*0.45, wObj.size*0.15, 0, 0, Math.PI * 2); ctx.fill(); 
                 }
                 if(images[wObj.type] && images[wObj.type].complete) {
                     let dSize = wObj.size; let dX = wObj.x; let dY = wObj.y;
-                    if(['tree', 'stall', 'tent', 'statue'].includes(wObj.type)) { 
-                        dSize = wObj.size * 1.4; dX = wObj.x - 15; dY = wObj.y - 30; 
-                    }
+                    if(['tree', 'stall', 'tent', 'statue'].includes(wObj.type)) { dSize = wObj.size * 1.4; dX = wObj.x - 15; dY = wObj.y - 30; }
                     ctx.drawImage(images[wObj.type], dX, dY, dSize, dSize);
                 }
             }
         }
 
-        // Radar Particles Update & Draw
         for(let i = radarPings.length - 1; i >= 0; i--) {
             let p = radarPings[i]; 
             ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
             ctx.lineWidth = 4; ctx.strokeStyle = `rgba(255, 255, 255, ${p.opacity})`; ctx.stroke();
-            
-            p.radius += 600 * dt; 
-            p.opacity -= 1.2 * dt; 
+            p.radius += 600 * dt; p.opacity -= 1.2 * dt; 
             if(p.opacity <= 0) radarPings.splice(i, 1);
         }
 
-        // Aim Raycast Draw (Optimized bounds collision)
         if (activePlayer.isAiming && !activePlayer.isDead) {
             let gunX = activePlayer.x + (activePlayer.facingRight ? 30 : -30); 
             let gunY = activePlayer.y + 10;
@@ -646,41 +598,26 @@
             let tP = (activePlayer === p1) ? p2 : p1;
 
             for(let i=0; i<200; i++) { 
-                lX += activePlayer.aimDir.x * 5; 
-                lY += activePlayer.aimDir.y * 5; 
+                lX += activePlayer.aimDir.x * 5; lY += activePlayer.aimDir.y * 5; 
                 let hit = false;
-                
                 if (lX < 0 || lX > MAP_PIXEL_SIZE || lY < 0 || lY > MAP_PIXEL_SIZE) break;
-
                 if (!tP.isDead && lX > tP.x-30 && lX < tP.x+30 && lY > tP.y-20 && lY < tP.y+40) hit = true;
-                
-                // Only check objects currently onscreen (via renderQueue bounds math)
                 for (let j=0; j<worldObjects.length; j++) {
                     let obj = worldObjects[j];
-                    if ((obj.isSolid || obj.isHidingSpot) && lX > obj.x && lX < obj.x + obj.size && lY > obj.y+10 && lY < obj.y + obj.size) { 
-                        hit = true; break; 
-                    } 
+                    if ((obj.isSolid || obj.isHidingSpot) && lX > obj.x && lX < obj.x + obj.size && lY > obj.y+10 && lY < obj.y + obj.size) { hit = true; break; } 
                 }
                 if (hit) break; 
             }
-            
-            ctx.beginPath(); ctx.moveTo(gunX, gunY); ctx.lineTo(lX, lY); 
-            ctx.strokeStyle = "rgba(231, 76, 60, 0.4)"; ctx.lineWidth = 3; ctx.stroke(); 
-            ctx.beginPath(); ctx.setLineDash([10, 10]); ctx.moveTo(gunX, gunY); ctx.lineTo(lX, lY); 
-            ctx.strokeStyle = "#e74c3c"; ctx.lineWidth = 3; ctx.stroke(); ctx.setLineDash([]);
+            ctx.beginPath(); ctx.moveTo(gunX, gunY); ctx.lineTo(lX, lY); ctx.strokeStyle = "rgba(231, 76, 60, 0.4)"; ctx.lineWidth = 3; ctx.stroke(); 
+            ctx.beginPath(); ctx.setLineDash([10, 10]); ctx.moveTo(gunX, gunY); ctx.lineTo(lX, lY); ctx.strokeStyle = "#e74c3c"; ctx.lineWidth = 3; ctx.stroke(); ctx.setLineDash([]);
             ctx.beginPath(); ctx.arc(lX, lY, 8, 0, Math.PI * 2); ctx.fillStyle = "#f1c40f"; ctx.fill(); ctx.lineWidth=2; ctx.stroke();
         }
 
-        // Explosions
         for (let i = explosions.length - 1; i >= 0; i--) {
             let exp = explosions[i];
-            ctx.beginPath(); ctx.arc(exp.x, exp.y, exp.radius, 0, Math.PI * 2); 
-            ctx.fillStyle = `rgba(241, 196, 15, ${exp.life})`; ctx.fill();
-            ctx.beginPath(); ctx.arc(exp.x, exp.y, exp.radius * 0.6, 0, Math.PI * 2); 
-            ctx.fillStyle = `rgba(231, 76, 60, ${exp.life})`; ctx.fill();
-            
-            exp.radius += 480 * dt; 
-            exp.life -= 4.8 * dt; 
+            ctx.beginPath(); ctx.arc(exp.x, exp.y, exp.radius, 0, Math.PI * 2); ctx.fillStyle = `rgba(241, 196, 15, ${exp.life})`; ctx.fill();
+            ctx.beginPath(); ctx.arc(exp.x, exp.y, exp.radius * 0.6, 0, Math.PI * 2); ctx.fillStyle = `rgba(231, 76, 60, ${exp.life})`; ctx.fill();
+            exp.radius += 480 * dt; exp.life -= 4.8 * dt; 
             if (exp.life <= 0) explosions.splice(i, 1);
         }
 
@@ -689,4 +626,4 @@
     }
 </script>
 </body>
-    </html>
+</html>
