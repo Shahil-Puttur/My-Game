@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Hide & Hunt - Roster Update</title>
+    <title>Hide & Hunt - Massive World Update</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; touch-action: none; user-select: none; -webkit-tap-highlight-color: transparent; }
         body { background-color: #2b2b2b; overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
@@ -11,15 +11,13 @@
         
         #ui-layer { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; }
         
-        /* Top HUD */
         #hud { position: absolute; top: 15px; width: 100%; text-align: center; pointer-events: auto; }
         .score-board { background: #1a1a1a; color: white; padding: 12px 25px; border-radius: 30px; border: 4px solid #f39c12; display: inline-block; font-weight: 900; font-size: 22px; box-shadow: 0 6px 0 #000; text-transform: uppercase; letter-spacing: 1px;}
         
-        /* NEW: Character Swap Button */
+        /* Fixed Swap Button */
         #btn-swap { position: absolute; top: 15px; left: 15px; background: #9b59b6; border: 3px solid #8e44ad; color: white; padding: 10px 15px; border-radius: 15px; font-weight: bold; font-size: 18px; pointer-events: auto; cursor: pointer; box-shadow: 0 4px 0 #732d91; transition: transform 0.1s;}
         #btn-swap:active { transform: translateY(4px); box-shadow: none; }
 
-        /* Controls */
         #joystick-zone { position: absolute; bottom: 30px; left: 30px; width: 140px; height: 140px; background: rgba(0, 0, 0, 0.2); border-radius: 50%; pointer-events: auto; border: 3px solid rgba(255,255,255,0.1); backdrop-filter: blur(4px); }
         #joystick-knob { position: absolute; top: 50%; left: 50%; width: 50px; height: 50px; background: rgba(255, 255, 255, 0.9); border-radius: 50%; transform: translate(-50%, -50%); box-shadow: 0 4px 10px rgba(0,0,0,0.5); pointer-events: none;}
         
@@ -33,27 +31,38 @@
 
         #alert-text { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); color: #f1c40f; font-size: 35px; font-weight: 900; -webkit-text-stroke: 1.5px black; text-shadow: 0px 5px 0 #000; opacity: 0; transition: opacity 0.2s, top 0.2s; pointer-events: none; z-index: 50;}
         
-        #loading { position: absolute; top:0; left:0; width: 100vw; height: 100vh; background: #2ecc71; color: white; display: flex; justify-content: center; align-items: center; font-size: 40px; font-weight: 900; z-index: 100; transition: opacity 0.5s; flex-direction: column;}
-        #loading p { font-size: 20px; font-weight: normal; margin-top:10px;}
+        /* PRO LOADING SCREEN */
+        #loading { position: absolute; top:0; left:0; width: 100vw; height: 100vh; background: #1a1a1a; color: white; display: flex; justify-content: center; align-items: center; font-size: 40px; font-weight: 900; z-index: 100; transition: opacity 0.5s; flex-direction: column; text-transform: uppercase; letter-spacing: 2px;}
+        #loading-bar-container { width: 60%; max-width: 400px; height: 20px; background: #333; border-radius: 10px; margin-top: 20px; border: 3px solid #555; overflow: hidden; }
+        #loading-bar { width: 0%; height: 100%; background: #2ecc71; box-shadow: 0 0 10px #2ecc71; transition: width 0.2s; }
+        #loading-text { font-size: 16px; margin-top: 10px; color: #aaa; }
     </style>
 </head>
 <body>
 
+    <!-- Professional Loading Screen -->
     <div id="loading">
-        <div>LOADING ASSETS...</div>
-        <p>Make sure panda.png and fox.png are uploaded!</p>
+        <div>INITIALIZING WORLD...</div>
+        <div id="loading-bar-container"><div id="loading-bar"></div></div>
+        <p id="loading-text">Loading Assets: 0%</p>
     </div>
+
     <canvas id="gameCanvas"></canvas>
 
     <div id="ui-layer">
-        <div id="btn-swap" onclick="swapCharacter(event)" ontouchstart="swapCharacter(event)">🦊 Swap</div>
+        <!-- FIXED SWAP BUTTON: using onpointerdown to prevent double-tap bugs -->
+        <div id="btn-swap" onpointerdown="swapCharacter(event)">🦊 Swap</div>
         
-        <div id="hud"><div class="score-board">09:45 | Find Panda!</div></div>
+        <div id="hud"><div class="score-board">09:45 | Survive!</div></div>
+        
         <div id="joystick-zone"><div id="joystick-knob"></div></div>
+        
         <div id="action-zone">
-            <div class="action-btn" id="btn-search" onmousedown="triggerSearch(event)" ontouchstart="triggerSearch(event)">🔎</div>
-            <div class="action-btn" id="btn-shoot" onmousedown="triggerShoot(event)" ontouchstart="triggerShoot(event)">🔫</div>
+            <!-- Fixed action buttons using onpointerdown -->
+            <div class="action-btn" id="btn-search" onpointerdown="triggerSearch(event)">🔎</div>
+            <div class="action-btn" id="btn-shoot" onpointerdown="triggerShoot(event)">🔫</div>
         </div>
+        
         <div id="alert-text">Nothing here...</div>
     </div>
 
@@ -62,81 +71,108 @@
     function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
     window.addEventListener('resize', resize); resize();
 
-    // --- ASSETS (NOW INCLUDES FOX) ---
-    const images = {}; let assetsLoaded = 0;
+    // --- 1. MASSIVE ASSET & AUDIO PIPELINE ---
+    const images = {}; 
+    let assetsLoaded = 0;
+    
+    // All 20 New Assets + Characters mapped exactly to your filenames!
     const assetList = { 
-        tree: 'tree.png', chest: 'chest.png', house: 'house.png', 
-        rock: 'rock.png', bush: 'bush.png', 
-        panda: 'panda.png', 
-        fox: 'fox.png' // <--- FOX ADDED HERE!
+        panda: 'panda.png', fox: 'fox.png',
+        grass: 'Tall Grass Patch.png', log: 'Hollow Log.png', bush: 'Berry Bush.png', 
+        tree: 'Pine Tree.png', shroom: 'Giant Mushroom.png', wall: 'Brick Wall Segment.png', 
+        fence: 'Wooden Fence.png', pillar: 'Stone Pillar.png', well: 'Water Well.png', 
+        statue: 'Animal Statue.png', barrel: 'Wooden Barrels.png', safe: 'Metal Safe.png', 
+        crate: 'Supply Crate.png', vending: 'Vending Machine.png', sack: 'Loot Sack.png', 
+        tent: 'Camping Tent.png', fire: 'Campfire.png', sign: 'Signpost.png', 
+        cart: 'Broken Cart.png', stall: 'Market Stall.png'
     };
-    const totalAssets = Object.keys(assetList).length;
+    
+    const totalAssets = Object.keys(assetList).length + 1; // +1 for the Audio File!
 
-    for (let key in assetList) {
-        images[key] = new Image(); images[key].src = assetList[key];
-        images[key].onload = () => {
-            assetsLoaded++;
-            if (assetsLoaded === totalAssets) {
+    // Audio Setup
+    const shootAudio = new Audio('shoot.mp3');
+    shootAudio.oncanplaythrough = () => handleAssetLoad('Audio: shoot.mp3');
+    shootAudio.onerror = () => handleAssetLoad('Audio Failed (Missing File)');
+
+    function handleAssetLoad(name) {
+        assetsLoaded++;
+        let percent = Math.floor((assetsLoaded / totalAssets) * 100);
+        document.getElementById('loading-bar').style.width = percent + "%";
+        document.getElementById('loading-text').innerText = `Loading: ${percent}%`;
+
+        if (assetsLoaded >= totalAssets) {
+            setTimeout(() => {
                 document.getElementById('loading').style.opacity = 0;
                 setTimeout(() => document.getElementById('loading').style.display = 'none', 500);
                 gameLoop();
-            }
-        };
-        images[key].onerror = () => { assetsLoaded++; console.log("Missing: " + key); };
+            }, 500); // Tiny pause so player sees 100% completion
+        }
+    }
+
+    // Load Images
+    for (let key in assetList) {
+        images[key] = new Image(); 
+        images[key].src = assetList[key];
+        images[key].onload = () => handleAssetLoad(key);
+        images[key].onerror = () => { console.error("MISSING FILE: " + assetList[key]); handleAssetLoad(key); };
     }
 
     // --- GAME CONSTANTS ---
-    const TILE_SIZE = 80; const MAP_SIZE = 25; 
+    const TILE_SIZE = 80; const MAP_SIZE = 30; // Made map slightly bigger for all the new stuff!
     let camera = { x: 0, y: 0, shakeTime: 0, shakeIntensity: 0 }; 
     let explosions = []; 
 
+    // Categorizing the new assets for the Generator!
+    const solidCover = ['tree', 'wall', 'fence', 'pillar', 'well', 'statue', 'vending', 'tent', 'sign', 'cart', 'stall'];
+    const destructibles = ['safe', 'barrel', 'crate', 'sack', 'log'];
+    const hidingSpots = ['bush', 'grass', 'shroom', 'fire'];
+
     // --- CONTROLS ---
     let input = { x: 0, y: 0 }; let keys = {};
-    window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
-    window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
-
+    window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true); window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
     const joystickZone = document.getElementById('joystick-zone'); const joystickKnob = document.getElementById('joystick-knob');
     let isDragging = false, joystickCenter = { x: 0, y: 0 };
-    
-    joystickZone.addEventListener('touchstart', handleTouchStart); joystickZone.addEventListener('touchmove', handleTouchMove);
-    joystickZone.addEventListener('touchend', handleTouchEnd); joystickZone.addEventListener('mousedown', handleTouchStart);
-    window.addEventListener('mousemove', handleTouchMove); window.addEventListener('mouseup', handleTouchEnd);
-    
+    joystickZone.addEventListener('touchstart', handleTouchStart); joystickZone.addEventListener('touchmove', handleTouchMove); joystickZone.addEventListener('touchend', handleTouchEnd); joystickZone.addEventListener('mousedown', handleTouchStart); window.addEventListener('mousemove', handleTouchMove); window.addEventListener('mouseup', handleTouchEnd);
     function handleTouchStart(e) { if (e.target !== joystickZone && e.target !== joystickKnob) return; isDragging = true; let rect = joystickZone.getBoundingClientRect(); joystickCenter = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }; updateJoystick(e); }
     function handleTouchMove(e) { if (!isDragging) return; e.preventDefault(); updateJoystick(e); }
     function handleTouchEnd() { isDragging = false; joystickKnob.style.transform = `translate(-50%, -50%)`; input = { x: 0, y: 0 }; }
-    function updateJoystick(e) { 
-        let clientX = e.touches ? e.touches[0].clientX : e.clientX; let clientY = e.touches ? e.touches[0].clientY : e.clientY; 
-        let dx = clientX - joystickCenter.x; let dy = clientY - joystickCenter.y; let dist = Math.sqrt(dx * dx + dy * dy); let maxRad = 45; 
-        if (dist > maxRad) { dx = (dx / dist) * maxRad; dy = (dy / dist) * maxRad; } 
-        joystickKnob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`; input.x = dx / maxRad; input.y = dy / maxRad; 
-    }
+    function updateJoystick(e) { let clientX = e.touches ? e.touches[0].clientX : e.clientX; let clientY = e.touches ? e.touches[0].clientY : e.clientY; let dx = clientX - joystickCenter.x; let dy = clientY - joystickCenter.y; let dist = Math.sqrt(dx * dx + dy * dy); let maxRad = 45; if (dist > maxRad) { dx = (dx / dist) * maxRad; dy = (dy / dist) * maxRad; } joystickKnob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`; input.x = dx / maxRad; input.y = dy / maxRad; }
 
-    // --- MAP GENERATOR ---
-    let gameMap = []; let worldObjects = []; 
+    // --- PRO MAP GENERATOR ---
+    let worldObjects = []; 
     for (let r = 0; r < MAP_SIZE; r++) {
         for (let c = 0; c < MAP_SIZE; c++) {
             let x = c * TILE_SIZE; let y = r * TILE_SIZE;
-            if (r === 0 || r === MAP_SIZE - 1 || c === 0 || c === MAP_SIZE - 1) { worldObjects.push({ id: Math.random(), type: Math.random() > 0.5 ? 'tree' : 'rock', x: x, y: y, size: TILE_SIZE, isSolid: true });
+            
+            // Map Borders (Trees and Pillars)
+            if (r === 0 || r === MAP_SIZE - 1 || c === 0 || c === MAP_SIZE - 1) { 
+                worldObjects.push({ type: Math.random() > 0.5 ? 'tree' : 'pillar', x: x, y: y, size: TILE_SIZE, isSolid: true, isHidingSpot: false });
             } else {
                 let rand = Math.random();
-                if (rand > 0.96) worldObjects.push({ id: Math.random(), type: 'chest', x: x, y: y, size: TILE_SIZE - 20, isSolid: true, hasMoney: true });
-                else if (rand > 0.90) worldObjects.push({ id: Math.random(), type: 'bush', x: x, y: y, size: TILE_SIZE - 10, isSolid: false, hasMoney: Math.random() > 0.5 }); 
-                else if (rand > 0.85) worldObjects.push({ id: Math.random(), type: 'tree', x: x, y: y, size: TILE_SIZE, isSolid: true });
-                else if (rand > 0.82) worldObjects.push({ id: Math.random(), type: 'rock', x: x, y: y, size: TILE_SIZE - 20, isSolid: true });
+                // 4% chance for Destructible Loot
+                if (rand > 0.96) {
+                    let randomItem = destructibles[Math.floor(Math.random() * destructibles.length)];
+                    worldObjects.push({ type: randomItem, x: x, y: y, size: TILE_SIZE - 15, isSolid: true, isHidingSpot: false, hasMoney: true });
+                } 
+                // 6% chance for Hiding Spots (Pass-through)
+                else if (rand > 0.90) {
+                    let randomItem = hidingSpots[Math.floor(Math.random() * hidingSpots.length)];
+                    worldObjects.push({ type: randomItem, x: x, y: y, size: TILE_SIZE, isSolid: false, isHidingSpot: true, hasMoney: Math.random() > 0.5 }); 
+                } 
+                // 10% chance for Solid Decor/Cover
+                else if (rand > 0.80) {
+                    let randomItem = solidCover[Math.floor(Math.random() * solidCover.length)];
+                    worldObjects.push({ type: randomItem, x: x, y: y, size: TILE_SIZE, isSolid: true, isHidingSpot: false, hasMoney: false });
+                }
             }
         }
     }
 
-    // --- DYNAMIC PLAYER CLASS ---
+    // --- PLAYER CLASS ---
     class Player {
         constructor(x, y, spriteName) {
-            this.x = x; this.y = y;
-            this.width = 80; this.height = 80; this.speed = 6;
-            
-            // NEW: DYNAMIC SPRITE!
-            this.spriteName = spriteName; // 'panda' or 'fox'
-
+            this.x = x; this.y = y; this.width = 80; this.height = 80; this.speed = 6;
+            this.spriteName = spriteName; 
             this.facingRight = true; this.isMoving = false;
             this.frameX = 0; this.frameY = 0; this.gameFrame = 0; this.staggerFrames = 6;
             this.aimDir = { x: 1, y: 0 }; this.isAiming = false;
@@ -144,10 +180,8 @@
 
         update() {
             let dx = 0; let dy = 0;
-            if (keys['w'] || keys['arrowup']) dy -= 1;
-            if (keys['s'] || keys['arrowdown']) dy += 1;
-            if (keys['a'] || keys['arrowleft']) dx -= 1;
-            if (keys['d'] || keys['arrowright']) dx += 1;
+            if (keys['w'] || keys['arrowup']) dy -= 1; if (keys['s'] || keys['arrowdown']) dy += 1;
+            if (keys['a'] || keys['arrowleft']) dx -= 1; if (keys['d'] || keys['arrowright']) dx += 1;
             if(input.x !== 0 || input.y !== 0) { dx = input.x; dy = input.y; }
 
             this.isMoving = (dx !== 0 || dy !== 0);
@@ -155,7 +189,6 @@
             if (this.isMoving) { 
                 let len = Math.sqrt(dx * dx + dy * dy); dx /= len; dy /= len; 
                 this.aimDir.x = dx; this.aimDir.y = dy;
-
                 if (dy > 0.5) this.frameY = 0; else if (dy < -0.5) this.frameY = 1; else this.frameY = 2; 
                 if (dx > 0) this.facingRight = true; if (dx < 0) this.facingRight = false;
 
@@ -186,36 +219,28 @@
 
         draw(ctx) {
             ctx.fillStyle = "rgba(0,0,0,0.3)"; ctx.beginPath(); ctx.ellipse(this.x, this.y + 35, 25, 12, 0, 0, Math.PI * 2); ctx.fill();
-            
-            // DRAW THE CURRENTLY SELECTED SPRITE
             if (images[this.spriteName]) {
                 let currentImage = images[this.spriteName];
                 let spriteW = currentImage.width / 4; let spriteH = currentImage.height / 3;
-                
                 ctx.save(); ctx.translate(this.x, this.y);
                 if (!this.facingRight) ctx.scale(-1, 1); 
                 ctx.drawImage(currentImage, this.frameX * spriteW, this.frameY * spriteH, spriteW, spriteH, -this.width / 2, -this.height / 2, this.width, this.height);
                 ctx.restore();
-            } else {
-                // Red box fallback
-                ctx.fillStyle="red"; ctx.fillRect(this.x-20, this.y-20, 40,40);
             }
         }
     }
 
-    // Initialize with Panda
     const player = new Player(MAP_SIZE * TILE_SIZE / 2, MAP_SIZE * TILE_SIZE / 2, 'panda');
 
-    // --- ACTIONS & UI ---
+    // --- UI ACTIONS & AUDIO ---
     function showAlert(text, color) {
         const alertBox = document.getElementById('alert-text');
         alertBox.innerText = text; alertBox.style.color = color; alertBox.style.opacity = 1; alertBox.style.top = "35%";
         setTimeout(() => { alertBox.style.opacity = 0; alertBox.style.top = "40%"; }, 1200);
     }
 
-    // NEW: Swap Character Logic!
     function swapCharacter(e) {
-        e.stopPropagation();
+        e.preventDefault(); // Stops double fire
         if(player.spriteName === 'panda') {
             player.spriteName = 'fox';
             document.getElementById('btn-swap').innerText = "🐼 Swap";
@@ -232,12 +257,13 @@
     }
 
     function triggerSearch(e) {
-        e.stopPropagation(); 
+        e.preventDefault(); 
         let found = false;
         for (let obj of worldObjects) {
             let objCenterX = obj.x + obj.size/2; let objCenterY = obj.y + obj.size/2;
             let dist = Math.sqrt(Math.pow(objCenterX - player.x, 2) + Math.pow(objCenterY - player.y, 2));
-            if (dist < TILE_SIZE && (obj.type === 'chest' || obj.type === 'bush')) {
+            // Search applies to hiding spots and destructibles
+            if (dist < TILE_SIZE * 1.2 && (obj.isHidingSpot || obj.hasMoney !== undefined)) {
                 if (obj.hasMoney) { showAlert("💎 JACKPOT! 💎", "#3498db"); obj.hasMoney = false; } 
                 else { showAlert("Empty...", "#e74c3c"); }
                 found = true; break;
@@ -247,13 +273,20 @@
     }
 
     function triggerShoot(e) { 
-        e.stopPropagation(); 
+        e.preventDefault(); 
         const btn = document.getElementById('btn-shoot');
 
         if (!player.isAiming) {
             player.isAiming = true; btn.classList.add("aiming-mode");
         } else {
             player.isAiming = false; btn.classList.remove("aiming-mode");
+            
+            // --- PLAY SHOOT SOUND ---
+            let sfx = shootAudio.cloneNode();
+            sfx.volume = 0.6;
+            sfx.play().catch(e => console.log("Audio play prevented until screen is tapped"));
+
+            // Calculate Laser Hit
             let gunX = player.x + (player.facingRight ? 20 : -20); let gunY = player.y + 10;
             let hitX = gunX; let hitY = gunY; let hitObjIndex = -1;
 
@@ -261,24 +294,27 @@
                 hitX += player.aimDir.x * 5; hitY += player.aimDir.y * 5; let collided = false;
                 for (let j=0; j < worldObjects.length; j++) {
                     let obj = worldObjects[j];
-                    if (obj.isSolid || obj.type === 'bush') {
+                    if (obj.isSolid || obj.isHidingSpot) {
                         if (hitX > obj.x && hitX < obj.x + obj.size && hitY > obj.y && hitY < obj.y + obj.size) { hitObjIndex = j; collided = true; break; }
                     }
                 }
                 if (collided) break;
             }
 
-            camera.shakeTime = 10; camera.shakeIntensity = 25; 
+            camera.shakeTime = 12; camera.shakeIntensity = 25; 
             explosions.push({ x: hitX, y: hitY, radius: 10, maxRadius: 50, life: 1.0 });
 
             if (hitObjIndex !== -1) {
                 let target = worldObjects[hitObjIndex];
-                if (target.type === 'chest' || target.type === 'bush') {
+                // Destroy destructibles and hiding spots!
+                if (!solidCover.includes(target.type)) {
                     if (target.hasMoney) showAlert("💰 BLEW UP HIDDEN MONEY! 💰", "#2ecc71");
                     else showAlert("Boom! Destroyed.", "#e74c3c");
                     worldObjects.splice(hitObjIndex, 1); 
+                } else {
+                    showAlert("Solid Wall Hit!", "#bdc3c7");
                 }
-            } else { showAlert("Missed!", "#bdc3c7"); }
+            }
         }
     }
 
@@ -288,43 +324,71 @@
         player.update();
         ctx.save(); ctx.translate(-Math.floor(camera.x), -Math.floor(camera.y));
 
+        // Checkerboard Ground
         for (let r = 0; r < MAP_SIZE; r++) { for (let c = 0; c < MAP_SIZE; c++) { if ((r+c)%2===0) { ctx.fillStyle = "rgba(0,0,0,0.05)"; ctx.fillRect(c*TILE_SIZE, r*TILE_SIZE, TILE_SIZE, TILE_SIZE); } } }
 
         let renderQueue = [];
         renderQueue.push({ type: 'player', y: player.y + (player.height*0.4), obj: player });
-        for(let obj of worldObjects) { let visualY = obj.y + obj.size; if(obj.type === 'house') visualY = obj.y + (obj.size * 1.5); renderQueue.push({ type: 'world', y: visualY, obj: obj }); }
+        
+        for(let obj of worldObjects) { 
+            let visualY = obj.y + obj.size; 
+            // Adjust depth for naturally taller objects
+            if(obj.type === 'stall' || obj.type === 'tree' || obj.type === 'tent') visualY = obj.y + (obj.size * 1.2); 
+            renderQueue.push({ type: 'world', y: visualY, obj: obj }); 
+        }
+        
+        // The Magic Y-Sort (Depth Rendering)
         renderQueue.sort((a, b) => a.y - b.y);
 
         for(let item of renderQueue) {
             if(item.type === 'player') item.obj.draw(ctx);
             else {
-                let wObj = item.obj; ctx.fillStyle = "rgba(0,0,0,0.3)"; let shadowW = wObj.size * 0.8; let shadowH = wObj.size * 0.3;
-                if(wObj.type !== 'bush') { ctx.beginPath(); ctx.ellipse(wObj.x + wObj.size/2, wObj.y + wObj.size - 10, shadowW/2, shadowH/2, 0, 0, Math.PI * 2); ctx.fill(); }
+                let wObj = item.obj; 
+                
+                // Draw drop shadow for objects
+                if(!wObj.isHidingSpot) { 
+                    ctx.fillStyle = "rgba(0,0,0,0.3)"; 
+                    ctx.beginPath(); 
+                    ctx.ellipse(wObj.x + wObj.size/2, wObj.y + wObj.size - 10, wObj.size*0.4, wObj.size*0.15, 0, 0, Math.PI * 2); 
+                    ctx.fill(); 
+                }
+
                 if(images[wObj.type]) {
-                    if(wObj.type === 'house') ctx.drawImage(images['house'], wObj.x - 20, wObj.y - 40, wObj.size * 1.5, wObj.size * 1.5);
-                    else if(wObj.type === 'tree') ctx.drawImage(images['tree'], wObj.x - 10, wObj.y - 40, wObj.size * 1.2, wObj.size * 1.4);
-                    else ctx.drawImage(images[wObj.type], wObj.x, wObj.y, wObj.size, wObj.size);
+                    // Make certain big objects draw slightly larger than their hitbox
+                    let drawSize = wObj.size;
+                    let drawX = wObj.x;
+                    let drawY = wObj.y;
+                    
+                    if(['tree', 'stall', 'tent', 'statue'].includes(wObj.type)) {
+                        drawSize = wObj.size * 1.3;
+                        drawX = wObj.x - 10;
+                        drawY = wObj.y - 20;
+                    }
+                    
+                    ctx.drawImage(images[wObj.type], drawX, drawY, drawSize, drawSize);
                 }
             }
         }
 
+        // DRAW LASER IF AIMING
         if (player.isAiming) {
             let gunX = player.x + (player.facingRight ? 20 : -20); let gunY = player.y + 10;
             let laserX = gunX; let laserY = gunY;
             for(let i=0; i<600; i+=5) { 
                 laserX += player.aimDir.x * 5; laserY += player.aimDir.y * 5; let hit = false;
-                for (let obj of worldObjects) { if ((obj.isSolid || obj.type === 'bush') && laserX > obj.x && laserX < obj.x + obj.size && laserY > obj.y && laserY < obj.y + obj.size) { hit = true; break; } }
+                for (let obj of worldObjects) { if ((obj.isSolid || obj.isHidingSpot) && laserX > obj.x && laserX < obj.x + obj.size && laserY > obj.y && laserY < obj.y + obj.size) { hit = true; break; } }
                 if (hit) break;
             }
             ctx.beginPath(); ctx.setLineDash([10, 10]); ctx.moveTo(gunX, gunY); ctx.lineTo(laserX, laserY); ctx.strokeStyle = "rgba(231, 76, 60, 0.7)"; ctx.lineWidth = 4; ctx.stroke(); ctx.setLineDash([]);
             ctx.beginPath(); ctx.arc(laserX, laserY, 8, 0, Math.PI * 2); ctx.strokeStyle = "#e74c3c"; ctx.lineWidth = 3; ctx.stroke(); ctx.fillStyle = "rgba(231, 76, 60, 0.4)"; ctx.fill();
         }
 
+        // DRAW EXPLOSIONS
         for (let i = explosions.length - 1; i >= 0; i--) {
             let exp = explosions[i];
             ctx.beginPath(); ctx.arc(exp.x, exp.y, exp.radius, 0, Math.PI * 2); ctx.fillStyle = `rgba(241, 196, 15, ${exp.life})`; ctx.fill();
             ctx.beginPath(); ctx.arc(exp.x, exp.y, exp.radius * 0.7, 0, Math.PI * 2); ctx.fillStyle = `rgba(231, 76, 60, ${exp.life})`; ctx.fill();
-            exp.radius += 5; exp.life -= 0.1; if (exp.life <= 0) explosions.splice(i, 1);
+            exp.radius += 6; exp.life -= 0.1; if (exp.life <= 0) explosions.splice(i, 1);
         }
 
         ctx.restore(); requestAnimationFrame(gameLoop);
