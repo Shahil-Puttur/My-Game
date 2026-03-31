@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Hide & Hunt - Asset Engine</title>
+    <title>Hide & Hunt - Panda Update</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; touch-action: none; user-select: none; }
         body { background-color: #2b2b2b; overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
@@ -25,12 +25,17 @@
         #alert-text { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); color: #f1c40f; font-size: 35px; font-weight: 900; -webkit-text-stroke: 1.5px black; text-shadow: 0px 5px 0 #000; opacity: 0; transition: opacity 0.2s, top 0.2s; pointer-events: none;}
         
         /* Loading Screen */
-        #loading { position: absolute; top:0; left:0; width: 100vw; height: 100vh; background: #2ecc71; color: white; display: flex; justify-content: center; align-items: center; font-size: 40px; font-weight: 900; z-index: 100; transition: opacity 0.5s;}
+        #loading { position: absolute; top:0; left:0; width: 100vw; height: 100vh; background: #2ecc71; color: white; display: flex; justify-content: center; align-items: center; font-size: 40px; font-weight: 900; z-index: 100; transition: opacity 0.5s; flex-direction: column;}
+        #loading p { font-size: 20px; margin-top: 10px; font-weight: normal; }
     </style>
 </head>
 <body>
 
-    <div id="loading">LOADING ASSETS...</div>
+    <div id="loading">
+        <div>LOADING ASSETS...</div>
+        <p>Make sure panda.png is uploaded!</p>
+    </div>
+    
     <canvas id="gameCanvas"></canvas>
 
     <div id="ui-layer">
@@ -54,12 +59,15 @@
     // --- 1. ASSET PIPELINE ---
     const images = {};
     let assetsLoaded = 0;
+    
+    // ADDED PANDA TO THE ASSET LIST
     const assetList = {
         tree: 'tree.png',
         chest: 'chest.png',
         house: 'house.png',
         rock: 'rock.png',
-        bush: 'bush.png'
+        bush: 'bush.png',
+        panda: 'panda.png' 
     };
     
     const totalAssets = Object.keys(assetList).length;
@@ -75,16 +83,18 @@
                 gameLoop(); // Start game only when images are loaded
             }
         };
-        // Error handling fallback just in case image isn't found
-        images[key].onerror = () => { console.error("Missing image: " + assetList[key]); assetsLoaded++; };
+        images[key].onerror = () => { 
+            console.error("Missing image: " + assetList[key] + ". Check your GitHub files!"); 
+            assetsLoaded++; // Force load anyway so screen doesn't freeze forever
+        };
     }
 
     // --- GAME CONSTANTS ---
-    const TILE_SIZE = 80; // Bigger tiles for your high-res assets
-    const MAP_SIZE = 25; // 25x25 grid
+    const TILE_SIZE = 80; 
+    const MAP_SIZE = 25; 
     let camera = { x: 0, y: 0 };
     
-    // Controls (Same as before)
+    // Controls
     let input = { x: 0, y: 0 }; let keys = {};
     window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
     window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
@@ -95,33 +105,31 @@
     joystickZone.addEventListener('touchstart', handleTouchStart); joystickZone.addEventListener('touchmove', handleTouchMove);
     joystickZone.addEventListener('touchend', handleTouchEnd); joystickZone.addEventListener('mousedown', handleTouchStart);
     window.addEventListener('mousemove', handleTouchMove); window.addEventListener('mouseup', handleTouchEnd);
+    
     function handleTouchStart(e) { if (e.target !== joystickZone && e.target !== joystickKnob) return; isDragging = true; let rect = joystickZone.getBoundingClientRect(); joystickCenter = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }; updateJoystick(e); }
     function handleTouchMove(e) { if (!isDragging) return; e.preventDefault(); updateJoystick(e); }
     function handleTouchEnd() { isDragging = false; joystickKnob.style.transform = `translate(-50%, -50%)`; input = { x: 0, y: 0 }; }
     function updateJoystick(e) { let clientX = e.touches ? e.touches[0].clientX : e.clientX; let clientY = e.touches ? e.touches[0].clientY : e.clientY; let dx = clientX - joystickCenter.x; let dy = clientY - joystickCenter.y; let dist = Math.sqrt(dx * dx + dy * dy); let maxRad = 45; if (dist > maxRad) { dx = (dx / dist) * maxRad; dy = (dy / dist) * maxRad; } joystickKnob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`; input.x = dx / maxRad; input.y = dy / maxRad; }
 
     // --- 2. ADVANCED MAP GENERATOR ---
-    // 0=Grass, 1=Tree, 2=Chest, 3=Bush, 4=Rock
     let gameMap = [];
-    let worldObjects = []; // Stores objects for rendering and collision
+    let worldObjects = []; 
     
     for (let r = 0; r < MAP_SIZE; r++) {
         let row = [];
         for (let c = 0; c < MAP_SIZE; c++) {
             let x = c * TILE_SIZE;
             let y = r * TILE_SIZE;
-            row.push(0); // Base ground is always grass
+            row.push(0); 
 
-            // Generate Map Borders (Trees/Rocks)
             if (r === 0 || r === MAP_SIZE - 1 || c === 0 || c === MAP_SIZE - 1) {
                 worldObjects.push({ type: Math.random() > 0.5 ? 'tree' : 'rock', x: x, y: y, size: TILE_SIZE, isSolid: true });
             } else {
-                // Random scatter inside map
                 let rand = Math.random();
                 if (rand > 0.96) {
                     worldObjects.push({ type: 'chest', x: x, y: y, size: TILE_SIZE - 20, isSolid: true, hasMoney: true });
                 } else if (rand > 0.90) {
-                    worldObjects.push({ type: 'bush', x: x, y: y, size: TILE_SIZE - 10, isSolid: false, hasMoney: Math.random() > 0.5 }); // Bushes aren't solid! Hiding spot!
+                    worldObjects.push({ type: 'bush', x: x, y: y, size: TILE_SIZE - 10, isSolid: false, hasMoney: Math.random() > 0.5 }); 
                 } else if (rand > 0.85) {
                     worldObjects.push({ type: 'tree', x: x, y: y, size: TILE_SIZE, isSolid: true });
                 } else if (rand > 0.82) {
@@ -131,36 +139,71 @@
         }
         gameMap.push(row);
     }
-
-    // Add one house in the middle left
     worldObjects.push({ type: 'house', x: 5 * TILE_SIZE, y: 5 * TILE_SIZE, size: TILE_SIZE * 2, isSolid: true });
 
-    // --- PLAYER CLASS ---
+    // --- 3. NEW PANDA PLAYER CLASS ---
     class Player {
         constructor(x, y) {
-            this.x = x; this.y = y;
-            this.width = 45; this.height = 55;
+            this.x = x; 
+            this.y = y;
+            this.width = 80;  // How big the panda appears on screen (Adjust if too small/big)
+            this.height = 80;
             this.speed = 6;
+            
+            // Animation trackers
             this.facingRight = true;
+            this.isMoving = false;
+            this.frameX = 0; // Current column (0 to 3)
+            this.frameY = 0; // Current row (0, 1, or 2)
+            this.gameFrame = 0; 
+            this.staggerFrames = 6; // Animation speed (lower is faster legs)
         }
 
         update() {
-            let dx = input.x; let dy = input.y;
+            let dx = input.x; 
+            let dy = input.y;
+            
             if (keys['w'] || keys['arrowup']) dy = -1;
             if (keys['s'] || keys['arrowdown']) dy = 1;
             if (keys['a'] || keys['arrowleft']) dx = -1;
             if (keys['d'] || keys['arrowright']) dx = 1;
 
+            this.isMoving = (dx !== 0 || dy !== 0);
+
+            // 1. WHICH ROW TO USE (Up, Down, or Side)
+            if (dy > 0) {
+                this.frameY = 0; // Walking Down (Row 1)
+            } else if (dy < 0) {
+                this.frameY = 1; // Walking Up (Row 2)
+            } else if (dx !== 0) {
+                this.frameY = 2; // Walking Side (Row 3)
+            }
+
+            // 2. WHICH DIRECTION TO FACE (Left/Right mirroring)
             if (dx > 0) this.facingRight = true;
             if (dx < 0) this.facingRight = false;
 
-            if (dx !== 0 && dy !== 0) { let len = Math.sqrt(dx * dx + dy * dy); dx /= len; dy /= len; }
+            // 3. ANIMATION FLIPBOOK MATH
+            if (this.isMoving) { 
+                let len = Math.sqrt(dx * dx + dy * dy); 
+                dx /= len; dy /= len;  // Normalize speed so diagonal isn't too fast
+                
+                this.gameFrame++;
+                if (this.gameFrame % this.staggerFrames === 0) {
+                    if (this.frameX < 3) this.frameX++; // Go to next frame
+                    else this.frameX = 0; // Loop back to start
+                }
+            } else {
+                this.frameX = 0; // Stand still frame when not moving
+                this.gameFrame = 0;
+            }
 
+            // Movement & Collision Logic
             let nextX = this.x + dx * this.speed;
             let nextY = this.y + dy * this.speed;
-
-            // Proper Collision detection with solid World Objects
             let collision = false;
+            
+            // Panda's collision box (around his feet)
             let playerHitbox = { left: nextX - 15, right: nextX + 15, top: nextY - 10, bottom: nextY + 25 };
 
             for (let obj of worldObjects) {
@@ -175,33 +218,45 @@
 
             if (!collision) { this.x = nextX; this.y = nextY; }
 
-            // Smooth Camera Follow
+            // Camera Follow smoothly
             camera.x += (this.x - canvas.width / 2 - camera.x) * 0.1;
             camera.y += (this.y - canvas.height / 2 - camera.y) * 0.1;
         }
 
         draw(ctx) {
-            // Draw Player shadow
+            // Draw Ground Shadow
             ctx.fillStyle = "rgba(0,0,0,0.3)";
-            ctx.beginPath(); ctx.ellipse(this.x, this.y + 25, 22, 12, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); 
+            ctx.ellipse(this.x, this.y + 35, 25, 12, 0, 0, Math.PI * 2); 
+            ctx.fill();
 
-            // Draw Panda Base (Placeholder until you get sprite sheets)
-            ctx.save();
-            ctx.translate(this.x, this.y);
-            if (!this.facingRight) ctx.scale(-1, 1); // Flip animation horizontally!
+            // Draw the Animated Panda
+            if (images['panda']) {
+                // THE AUTO-CROP MATH!
+                let spriteW = images['panda'].width / 4;  // Width / 4 columns
+                let spriteH = images['panda'].height / 3; // Height / 3 rows
 
-            // Panda Body
-            ctx.fillStyle = "#ecf0f1"; ctx.fillRect(-20, -25, 40, 50);
-            ctx.fillStyle = "#2c3e50"; 
-            ctx.fillRect(-20, 5, 40, 20); // Pants
-            ctx.beginPath(); ctx.arc(-15, -25, 10, 0, Math.PI * 2); ctx.arc(15, -25, 10, 0, Math.PI * 2); ctx.fill(); // Ears
-            ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(-8, -10, 5, 0, Math.PI * 2); ctx.arc(8, -10, 5, 0, Math.PI * 2); ctx.fill(); // Eyes
-            ctx.fillStyle = "#000"; ctx.beginPath(); ctx.arc(-8, -10, 2, 0, Math.PI * 2); ctx.arc(8, -10, 2, 0, Math.PI * 2); ctx.fill(); // Pupils
-            
-            // Gun
-            ctx.fillStyle = "#333"; ctx.fillRect(15, -5, 25, 8);
-            
-            ctx.restore();
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                
+                // MIRROR IMAGE IF WALKING LEFT
+                if (!this.facingRight) {
+                    ctx.scale(-1, 1); 
+                }
+
+                // drawImage(image, cropX, cropY, cropWidth, cropHeight, drawX, drawY, drawWidth, drawHeight)
+                ctx.drawImage(
+                    images['panda'], 
+                    this.frameX * spriteW, this.frameY * spriteH, spriteW, spriteH, // The Crop Box
+                    -this.width / 2, -this.height / 2, this.width, this.height // Where it draws
+                );
+                
+                ctx.restore();
+            } else {
+                // Fallback red square if panda image failed to load
+                ctx.fillStyle = "red";
+                ctx.fillRect(this.x - 20, this.y - 20, 40, 40);
+            }
         }
     }
 
@@ -217,17 +272,15 @@
     function triggerSearch() {
         let found = false;
         for (let obj of worldObjects) {
-            // Check distance from player center to object center
             let objCenterX = obj.x + obj.size/2;
             let objCenterY = obj.y + obj.size/2;
             let dist = Math.sqrt(Math.pow(objCenterX - player.x, 2) + Math.pow(objCenterY - player.y, 2));
             
-            // If close to a Chest or Bush
             if (dist < TILE_SIZE && (obj.type === 'chest' || obj.type === 'bush')) {
                 if (obj.hasMoney) {
                     showAlert("💎 JACKPOT! 💎", "#3498db");
                     obj.hasMoney = false;
-                    if(obj.type === 'chest') obj.type = 'rock'; // Visually "break" the chest by turning to rock (temporary logic)
+                    if(obj.type === 'chest') obj.type = 'rock'; 
                 } else {
                     showAlert("Empty...", "#e74c3c");
                 }
@@ -236,11 +289,11 @@
         }
         if (!found) showAlert("Nothing here!", "#f39c12");
     }
-    function triggerShoot() { showAlert("BAM! BAM!", "#e74c3c"); }
+    function triggerShoot() { showAlert("PEW PEW!", "#e74c3c"); }
 
-    // --- 3. THE MAGIC Y-SORTING RENDER LOOP ---
+    // --- 4. RENDER LOOP (Y-SORTING) ---
     function gameLoop() {
-        ctx.fillStyle = '#6ab04c'; // Global ground color
+        ctx.fillStyle = '#6ab04c'; 
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
         player.update();
@@ -248,57 +301,46 @@
         ctx.save();
         ctx.translate(-Math.floor(camera.x), -Math.floor(camera.y));
 
-        // 1. Draw Ground/Grass Texture First (Underneath everything)
         for (let r = 0; r < MAP_SIZE; r++) {
             for (let c = 0; c < MAP_SIZE; c++) {
                 if ((r+c)%2===0) {
-                    ctx.fillStyle = "rgba(0,0,0,0.05)"; // subtle grass variation
+                    ctx.fillStyle = "rgba(0,0,0,0.05)"; 
                     ctx.fillRect(c*TILE_SIZE, r*TILE_SIZE, TILE_SIZE, TILE_SIZE);
                 }
             }
         }
 
-        // 2. Prepare Render Array
         let renderQueue = [];
         
-        // Push Player (Y is the bottom of their feet)
-        renderQueue.push({ type: 'player', y: player.y + player.height/2, obj: player });
+        renderQueue.push({ type: 'player', y: player.y + (player.height*0.4), obj: player });
 
-        // Push all World Objects (Y is the bottom of their sprite)
         for(let obj of worldObjects) {
             let visualY = obj.y + obj.size; 
-            if(obj.type === 'house') visualY = obj.y + (obj.size * 1.5); // Adjust for tall house
+            if(obj.type === 'house') visualY = obj.y + (obj.size * 1.5); 
             renderQueue.push({ type: 'world', y: visualY, obj: obj });
         }
 
-        // 3. SORT BY Y (This creates the 3D depth effect!)
         renderQueue.sort((a, b) => a.y - b.y);
 
-        // 4. DRAW IN SORTED ORDER
         for(let item of renderQueue) {
             if(item.type === 'player') {
                 item.obj.draw(ctx);
             } else {
                 let wObj = item.obj;
                 
-                // Draw drop shadow under the image
                 ctx.fillStyle = "rgba(0,0,0,0.3)";
                 let shadowW = wObj.size * 0.8;
                 let shadowH = wObj.size * 0.3;
-                if(wObj.type !== 'bush') { // bushes don't need heavy shadows
+                if(wObj.type !== 'bush') { 
                     ctx.beginPath(); 
                     ctx.ellipse(wObj.x + wObj.size/2, wObj.y + wObj.size - 10, shadowW/2, shadowH/2, 0, 0, Math.PI * 2); 
                     ctx.fill();
                 }
 
-                // Draw the actual image
                 if(images[wObj.type]) {
-                    // Draw Image. Syntax: (image, x, y, width, height)
-                    let scale = 1.2; // make assets slightly bigger than their hitbox
                     if(wObj.type === 'house') {
                         ctx.drawImage(images['house'], wObj.x - 20, wObj.y - 40, wObj.size * 1.5, wObj.size * 1.5);
                     } else if(wObj.type === 'tree') {
-                        // Trees are tall, pull them up on the Y axis visually
                         ctx.drawImage(images['tree'], wObj.x - 10, wObj.y - 40, wObj.size * 1.2, wObj.size * 1.4);
                     } else {
                         ctx.drawImage(images[wObj.type], wObj.x, wObj.y, wObj.size, wObj.size);
@@ -312,4 +354,4 @@
     }
 </script>
 </body>
-                              </html>
+</html>
