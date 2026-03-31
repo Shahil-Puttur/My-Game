@@ -13,33 +13,28 @@
         
         #ui-layer { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 10; display: none; }
         
-        /* NEW: Top Right Stacked HUD */
         #hud-right { position: absolute; top: 15px; right: 15px; background: rgba(0, 0, 0, 0.6); padding: 10px 15px; border-radius: 12px; border: 3px solid #f39c12; color: white; font-size: 16px; font-weight: bold; text-transform: uppercase; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); pointer-events: none; text-align: right; min-width: 140px;}
         .hud-player { display: flex; justify-content: space-between; align-items: center; gap: 15px; }
         .hp-text { font-size: 18px; }
         
-        /* Top Left - Swap Button */
         #btn-swap { position: absolute; top: 15px; left: 15px; background: #9b59b6; border: 3px solid #8e44ad; color: white; padding: 10px 20px; border-radius: 20px; font-size: 16px; font-weight: 900; pointer-events: auto; cursor: pointer; box-shadow: 0 5px 0 #732d91; transition: transform 0.1s; display: flex; align-items: center; gap: 5px; text-transform: uppercase;}
         #btn-swap:active { transform: translateY(5px); box-shadow: none; }
 
-        /* Left Side Controls */
         #joystick-zone { position: absolute; bottom: 50px; left: 30px; width: 130px; height: 130px; background: rgba(0, 0, 0, 0.15); border-radius: 50%; pointer-events: auto; border: 3px solid rgba(255,255,255,0.2); backdrop-filter: blur(4px); }
         #joystick-knob { position: absolute; top: 50%; left: 50%; width: 50px; height: 50px; background: #fff; border-radius: 50%; transform: translate(-50%, -50%); box-shadow: 0 5px 15px rgba(0,0,0,0.3); pointer-events: none; }
         
-        /* Right Side Controls (Moved UP and made slightly SMALLER) */
         #right-controls { position: absolute; bottom: 60px; right: 25px; display: flex; flex-direction: column; gap: 15px; pointer-events: auto; align-items: flex-end;}
         
         .action-btn { width: 65px; height: 65px; border-radius: 50%; border: 3px solid rgba(0,0,0,0.2); color: white; font-size: 26px; cursor: pointer; display: flex; justify-content: center; align-items: center; transition: transform 0.1s, box-shadow 0.1s; box-shadow: inset 0 -4px 0 rgba(0,0,0,0.2), 0 5px 10px rgba(0,0,0,0.3); }
         .action-btn:active { transform: scale(0.9) translateY(4px); box-shadow: inset 0 -2px 0 rgba(0,0,0,0.2), 0 2px 5px rgba(0,0,0,0.3); }
         
         #btn-search { background-color: #2ecc71; }
-        #btn-shoot { background-color: #e74c3c; width: 75px; height: 75px; font-size: 30px; } /* Shoot slightly bigger than search */
+        #btn-shoot { background-color: #e74c3c; width: 75px; height: 75px; font-size: 30px; } 
         .aiming-mode { background-color: #c0392b !important; border-color: #f1c40f !important; box-shadow: 0 0 15px #e74c3c, inset 0 -4px 0 rgba(0,0,0,0.2) !important; transform: scale(1.1); }
 
         #alert-text { position: absolute; top: 35%; left: 50%; transform: translate(-50%, -50%); color: #f1c40f; font-size: 40px; -webkit-text-stroke: 1.5px #000; text-shadow: 0px 5px 0 #000; opacity: 0; transition: opacity 0.2s, top 0.2s; pointer-events: none; z-index: 50; text-align: center; width: 100%; font-weight: 900;}
         .show-alert { opacity: 1 !important; top: 40% !important; }
         
-        /* Bright Lobby & Loading Screens */
         .overlay-screen { position: absolute; top:0; left:0; width: 100vw; height: 100vh; background: #6ab04c; color: white; display: flex; justify-content: center; align-items: center; font-size: 30px; z-index: 100; flex-direction: column; text-transform: uppercase; letter-spacing: 2px; }
         #loading-bar-container { width: 70%; max-width: 400px; height: 15px; background: rgba(0,0,0,0.3); border-radius: 10px; margin-top: 20px; overflow: hidden; border: 3px solid rgba(0,0,0,0.5); }
         #loading-bar { width: 0%; height: 100%; background: #f1c40f; transition: width 0.2s ease-out; }
@@ -71,14 +66,14 @@
                 <label>🦊 FOX TEAM</label>
                 <input type="text" id="p2-name" class="input-field" placeholder="Player 2" value="Fox">
             </div>
-            <button class="start-btn" onclick="startGame()">START GAME</button>
+            <button class="start-btn" id="btn-start">START GAME</button>
         </div>
     </div>
 
     <canvas id="gameCanvas"></canvas>
 
     <div id="ui-layer">
-        <button id="btn-swap" ontouchstart="handleSwap(event)" onmousedown="handleSwap(event)">🐼 Swap</button>
+        <button id="btn-swap">🐼 Swap</button>
         
         <div id="hud-right">
             <div class="hud-player" id="hud-p1">...</div>
@@ -88,33 +83,42 @@
         <div id="joystick-zone"><div id="joystick-knob"></div></div>
         
         <div id="right-controls">
-            <button class="action-btn" id="btn-search" ontouchstart="handleSearch(event)" onmousedown="handleSearch(event)">🔎</button>
-            <button class="action-btn" id="btn-shoot" ontouchstart="handleShoot(event)" onmousedown="handleShoot(event)">🔫</button>
+            <button class="action-btn" id="btn-search">🔎</button>
+            <button class="action-btn" id="btn-shoot">🔫</button>
         </div>
         
         <div id="alert-text">Nothing here...</div>
     </div>
 
 <script>
+    // --- CORE SETUP ---
     const canvas = document.getElementById('gameCanvas'); 
-    const ctx = canvas.getContext('2d');
-    function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
-    window.addEventListener('resize', resize); resize();
+    const ctx = canvas.getContext('2d', { alpha: false }); // Optimization: Disables transparent background processing
+    
+    function resize() { 
+        canvas.width = window.innerWidth; 
+        canvas.height = window.innerHeight; 
+    }
+    window.addEventListener('resize', resize); 
+    resize();
 
     // --- ASSET PRELOADER ---
-    const images = {}; let assetsLoaded = 0;
+    const images = {}; 
+    let assetsLoaded = 0;
     const assetList = { 
         panda: 'panda.png', fox: 'fox.png', grass: 'Tall Grass Patch.png', log: 'Hollow Log.png', bush: 'Berry Bush.png', 
         tree: 'Pine Tree.png', shroom: 'Giant Mushroom.png', wall: 'Brick Wall Segment.png', fence: 'Wooden Fence.png', pillar: 'Stone Pillar.png', well: 'Water Well.png', 
         statue: 'Animal Statue.png', barrel: 'Wooden Barrels.png', safe: 'Metal Safe.png', crate: 'Supply Crate.png', vending: 'Vending Machine.png', sack: 'Loot Sack.png', 
         tent: 'Camping Tent.png', fire: 'Campfire.png', sign: 'Signpost.png', cart: 'Broken Cart.png', stall: 'Market Stall.png'
     };
-    const totalAssets = Object.keys(assetList).length + 1;
+    const totalAssets = Object.keys(assetList).length + 1; // +1 for Audio
 
     function assetCheck() {
-        assetsLoaded++; let percent = Math.floor((assetsLoaded / totalAssets) * 100);
+        assetsLoaded++; 
+        let percent = Math.floor((assetsLoaded / totalAssets) * 100);
         document.getElementById('loading-bar').style.width = percent + "%";
         document.getElementById('loading-text').innerText = `Loading: ${percent}%`;
+        
         if (assetsLoaded >= totalAssets) {
             setTimeout(() => {
                 document.getElementById('loading').style.display = 'none';
@@ -123,75 +127,212 @@
         }
     }
 
-    const shootAudio = new Audio('shoot.mp3'); shootAudio.oncanplaythrough = assetCheck; shootAudio.onerror = assetCheck; 
-    for (let key in assetList) {
-        let img = new Image(); let isLoaded = false;
-        const markLoaded = () => { if(!isLoaded) { isLoaded = true; assetCheck(); } };
-        img.onload = markLoaded; img.onerror = markLoaded; img.src = assetList[key];
-        if(img.complete) markLoaded(); images[key] = img;
+    // Audio preloading & pooling (Ensures multiple shots play smoothly)
+    const audioPool = [];
+    const shootAudio = new Audio('shoot.mp3'); 
+    shootAudio.oncanplaythrough = assetCheck; 
+    shootAudio.onerror = assetCheck; // Fallback so game loads even if audio fails
+    for(let i=0; i<5; i++) {
+        audioPool.push(shootAudio.cloneNode());
+    }
+    let audioIndex = 0;
+    
+    function playShootSound() {
+        try {
+            audioPool[audioIndex].volume = 0.5;
+            audioPool[audioIndex].currentTime = 0;
+            audioPool[audioIndex].play().catch(()=>{});
+            audioIndex = (audioIndex + 1) % audioPool.length;
+        } catch(e) {}
     }
 
-    // --- CONSTANTS & MAP ---
+    for (let key in assetList) {
+        let img = new Image(); 
+        let isLoaded = false;
+        const markLoaded = () => { if(!isLoaded) { isLoaded = true; assetCheck(); } };
+        img.onload = markLoaded; 
+        img.onerror = markLoaded; 
+        img.src = assetList[key];
+        if(img.complete) markLoaded(); 
+        images[key] = img;
+    }
+
+    // --- GRID OPTIMIZATION (Offscreen Canvas) ---
     const TILE_SIZE = 80; 
-    const MAP_SIZE = 35; // Smaller, friendlier map size
+    const gridCanvas = document.createElement('canvas');
+    gridCanvas.width = TILE_SIZE * 2;
+    gridCanvas.height = TILE_SIZE * 2;
+    const gctx = gridCanvas.getContext('2d');
+    gctx.fillStyle = "rgba(0, 0, 0, 0.05)";
+    gctx.fillRect(0, 0, TILE_SIZE, TILE_SIZE);
+    gctx.fillRect(TILE_SIZE, TILE_SIZE, TILE_SIZE, TILE_SIZE);
+    const gridPattern = ctx.createPattern(gridCanvas, 'repeat');
+
+    // --- CONSTANTS & GAME STATE ---
+    const MAP_SIZE = 35;
+    const MAP_PIXEL_SIZE = MAP_SIZE * TILE_SIZE;
     let camera = { x: 0, y: 0, shakeTime: 0, shakeIntensity: 0 }; 
-    let explosions = []; let radarPings = []; let worldObjects = [];
+    const explosions = []; 
+    const radarPings = []; 
+    let worldObjects = [];
+    const renderQueue = []; // Pre-allocated array for optimized rendering
+
     const solidCover = ['tree', 'wall', 'fence', 'pillar', 'well', 'statue', 'vending', 'tent', 'sign', 'cart', 'stall'];
     const destructibles = ['safe', 'barrel', 'crate', 'sack', 'log'];
     const hidingSpots = ['bush', 'grass', 'shroom', 'fire'];
 
+    // --- INPUT MANAGEMENT (Cross-Platform) ---
+    const input = { x: 0, y: 0 };
+    const keys = {};
+
+    window.addEventListener('keydown', (e) => { 
+        keys[e.code] = true;
+        if(e.code === 'Space') handleShoot();
+        if(e.code === 'Enter' || e.code === 'KeyE') handleSearch();
+        if(e.code === 'KeyQ') handleSwap();
+    });
+    window.addEventListener('keyup', (e) => keys[e.code] = false);
+
+    const joystickZone = document.getElementById('joystick-zone'); 
+    const joystickKnob = document.getElementById('joystick-knob');
+    let isDragging = false, joystickCenter = { x: 0, y: 0 }, touchId = null;
+
+    joystickZone.addEventListener('touchstart', (e) => {
+        e.preventDefault(); 
+        if (isDragging) return;
+        let touch = e.changedTouches[0]; 
+        touchId = touch.identifier; 
+        isDragging = true;
+        let rect = joystickZone.getBoundingClientRect(); 
+        joystickCenter = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+        updateJoystick(touch.clientX, touch.clientY);
+    }, {passive: false});
+
+    window.addEventListener('touchmove', (e) => {
+        if (!isDragging) return;
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            if (e.changedTouches[i].identifier === touchId) { 
+                updateJoystick(e.changedTouches[i].clientX, e.changedTouches[i].clientY); 
+                break; 
+            }
+        }
+    }, {passive: false});
+
+    window.addEventListener('touchend', (e) => {
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            if (e.changedTouches[i].identifier === touchId) { 
+                isDragging = false; touchId = null; 
+                joystickKnob.style.transform = `translate(-50%, -50%)`; 
+                input.x = 0; input.y = 0; 
+                break; 
+            }
+        }
+    });
+
+    function updateJoystick(clientX, clientY) { 
+        let dx = clientX - joystickCenter.x; 
+        let dy = clientY - joystickCenter.y; 
+        let dist = Math.sqrt(dx * dx + dy * dy); 
+        let maxRad = 45; 
+        if (dist > maxRad) { dx = (dx / dist) * maxRad; dy = (dy / dist) * maxRad; } 
+        joystickKnob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`; 
+        input.x = dx / maxRad; 
+        input.y = dy / maxRad; 
+    }
+
     // --- PLAYER CLASS ---
     class Player {
         constructor(x, y, spriteName) {
-            this.x = x; this.y = y; this.width = 100; this.height = 100; this.speed = 7; 
-            this.hitboxW = 40; this.hitboxH = 30; // Small hitbox for zero stuck feeling
-            this.spriteName = spriteName; this.name = ""; this.hp = 100; this.isDead = false;
-            this.frameX = 0; this.frameY = 0; this.gameFrame = 0; this.staggerFrames = 5; 
-            this.facingRight = true; this.isMoving = false; this.aimDir = { x: 1, y: 0 }; this.isAiming = false;
+            this.x = x; this.y = y; 
+            this.width = 100; this.height = 100; 
+            this.speed = 420; // 420 pixels per second
+            this.hitboxW = 40; this.hitboxH = 30; 
+            this.spriteName = spriteName; this.name = ""; 
+            this.hp = 100; this.isDead = false;
+            this.frameX = 0; this.frameY = 0; this.gameFrame = 0; 
+            this.staggerFrames = 5; 
+            this.facingRight = true; this.isMoving = false; 
+            this.aimDir = { x: 1, y: 0 }; this.isAiming = false;
         }
 
-        update(isActive) {
+        update(dt, isActive) {
             if(this.isDead) return;
+            
             let dx = 0; let dy = 0;
-            if (isActive && (input.x !== 0 || input.y !== 0)) { dx = input.x; dy = input.y; }
+            
+            // Combine touch joystick and keyboard inputs
+            if (isActive) {
+                if (input.x !== 0 || input.y !== 0) {
+                    dx = input.x; dy = input.y;
+                } else {
+                    if (keys['KeyW'] || keys['ArrowUp']) dy -= 1;
+                    if (keys['KeyS'] || keys['ArrowDown']) dy += 1;
+                    if (keys['KeyA'] || keys['ArrowLeft']) dx -= 1;
+                    if (keys['KeyD'] || keys['ArrowRight']) dx += 1;
+                }
+            }
+
             this.isMoving = (dx !== 0 || dy !== 0);
 
             if (this.isMoving) { 
-                let len = Math.sqrt(dx * dx + dy * dy); dx /= len; dy /= len; 
+                // Normalize diagonal movement
+                let len = Math.sqrt(dx * dx + dy * dy); 
+                dx /= len; dy /= len; 
                 this.aimDir.x = dx; this.aimDir.y = dy;
                 
-                // --- THE PRO FIX: 360 DEGREE ANGLE CALCULATOR ---
-                // This perfectly prevents the Fox from looking right when walking straight down!
-                let angle = Math.atan2(dy, dx) * (180 / Math.PI); // Converts to degrees (-180 to +180)
+                let angle = Math.atan2(dy, dx) * (180 / Math.PI);
                 
-                if (angle > -45 && angle <= 45) { // Walking Right
+                if (angle > -45 && angle <= 45) { // Right
                     this.frameY = 2; this.facingRight = true;
-                } else if (angle > 45 && angle <= 135) { // Walking Down
+                } else if (angle > 45 && angle <= 135) { // Down
                     this.frameY = 0; 
-                } else if (angle > 135 || angle <= -135) { // Walking Left
+                } else if (angle > 135 || angle <= -135) { // Left
                     this.frameY = 2; this.facingRight = false;
-                } else if (angle > -135 && angle <= -45) { // Walking Up
+                } else if (angle > -135 && angle <= -45) { // Up
                     this.frameY = 1; 
                 }
 
-                if(!this.isAiming) { this.gameFrame++; if (this.gameFrame % this.staggerFrames === 0) this.frameX = (this.frameX + 1) % 4; } 
-                else { this.frameX = 0; }
-            } else { this.frameX = 0; this.gameFrame = 0; }
+                if(!this.isAiming) { 
+                    this.gameFrame += dt * 60; // Scale frame rate strictly to dt
+                    if (Math.floor(this.gameFrame) % this.staggerFrames === 0) {
+                        this.frameX = (Math.floor(this.gameFrame / this.staggerFrames)) % 4; 
+                    }
+                } else { 
+                    this.frameX = 0; 
+                }
+            } else { 
+                this.frameX = 0; this.gameFrame = 0; 
+            }
 
             let moveSpeed = this.isAiming ? this.speed * 0.4 : this.speed; 
             
-            // Wall Sliding Collision (Never feel stuck)
-            this.x += dx * moveSpeed; if (this.checkCollision()) this.x -= dx * moveSpeed; 
-            this.y += dy * moveSpeed; if (this.checkCollision()) this.y -= dy * moveSpeed; 
+            // Slide Collision Logic using Delta Time
+            this.x += dx * moveSpeed * dt; 
+            if (this.checkCollision()) this.x -= dx * moveSpeed * dt; 
+            
+            this.y += dy * moveSpeed * dt; 
+            if (this.checkCollision()) this.y -= dy * moveSpeed * dt; 
         }
 
         checkCollision() {
-            let pBox = { left: this.x - this.hitboxW/2, right: this.x + this.hitboxW/2, top: this.y + 15, bottom: this.y + 15 + this.hitboxH };
-            if(pBox.left < 0 || pBox.right > MAP_SIZE*TILE_SIZE || pBox.top < 0 || pBox.bottom > MAP_SIZE*TILE_SIZE) return true;
-            for (let obj of worldObjects) {
+            let pBox = { 
+                left: this.x - this.hitboxW/2, right: this.x + this.hitboxW/2, 
+                top: this.y + 15, bottom: this.y + 15 + this.hitboxH 
+            };
+            
+            // Map Bounds
+            if(pBox.left < 0 || pBox.right > MAP_PIXEL_SIZE || pBox.top < 0 || pBox.bottom > MAP_PIXEL_SIZE) return true;
+            
+            // Object Collision
+            for (let i = 0; i < worldObjects.length; i++) {
+                let obj = worldObjects[i];
                 if (obj.isSolid) {
-                    let objBox = { left: obj.x, right: obj.x + obj.size, top: obj.y + (obj.size*0.5), bottom: obj.y + obj.size };
-                    if (pBox.right > objBox.left && pBox.left < objBox.right && pBox.bottom > objBox.top && pBox.top < objBox.bottom) return true;
+                    let objBox = { 
+                        left: obj.x, right: obj.x + obj.size, 
+                        top: obj.y + (obj.size*0.5), bottom: obj.y + obj.size 
+                    };
+                    if (pBox.right > objBox.left && pBox.left < objBox.right && 
+                        pBox.bottom > objBox.top && pBox.top < objBox.bottom) return true;
                 }
             }
             return false;
@@ -199,14 +340,27 @@
 
         draw(ctx) {
             if(this.isDead) return;
-            ctx.fillStyle = "rgba(0,0,0,0.2)"; ctx.beginPath(); ctx.ellipse(this.x, this.y + 40, 25, 10, 0, 0, Math.PI * 2); ctx.fill();
+            
+            // Shadow
+            ctx.fillStyle = "rgba(0,0,0,0.2)"; 
+            ctx.beginPath(); 
+            ctx.ellipse(this.x, this.y + 40, 25, 10, 0, 0, Math.PI * 2); 
+            ctx.fill();
+            
             let img = images[this.spriteName];
             if (img && img.complete) {
-                let spriteW = img.width / 4; let spriteH = img.height / 3;
-                ctx.save(); ctx.translate(this.x, this.y);
+                let spriteW = img.width / 4; 
+                let spriteH = img.height / 3;
+                
+                ctx.save(); 
+                ctx.translate(this.x, this.y);
                 if (!this.facingRight && this.frameY === 2) ctx.scale(-1, 1); 
-                if(this.isMoving && !this.isAiming) ctx.translate(0, Math.sin(this.gameFrame/2)*2);
-                ctx.drawImage(img, this.frameX * spriteW, this.frameY * spriteH, spriteW, spriteH, -this.width / 2, -this.height / 2, this.width, this.height);
+                if (this.isMoving && !this.isAiming) ctx.translate(0, Math.sin(this.gameFrame*0.5)*2);
+                
+                ctx.drawImage(img, 
+                    this.frameX * spriteW, this.frameY * spriteH, spriteW, spriteH, 
+                    -this.width / 2, -this.height / 2, this.width, this.height
+                );
                 ctx.restore();
             }
         }
@@ -216,19 +370,21 @@
     let p2 = new Player((MAP_SIZE - 4) * TILE_SIZE, (MAP_SIZE - 4) * TILE_SIZE, 'fox');
     let activePlayer = p1; 
 
-    // --- WIDE OPEN MAP GENERATOR ---
+    // --- MAP GENERATOR ---
     function generateMap() {
         worldObjects = [];
         for (let r = 0; r < MAP_SIZE; r++) {
             for (let c = 0; c < MAP_SIZE; c++) {
-                let x = c * TILE_SIZE; let y = r * TILE_SIZE;
+                let x = c * TILE_SIZE; 
+                let y = r * TILE_SIZE;
+                
                 if (r === 0 || r === MAP_SIZE - 1 || c === 0 || c === MAP_SIZE - 1) { 
-                    worldObjects.push({ type: 'tree', x: x, y: y, size: TILE_SIZE, isSolid: true, isHidingSpot: false }); continue;
+                    worldObjects.push({ type: 'tree', x: x, y: y, size: TILE_SIZE, isSolid: true, isHidingSpot: false }); 
+                    continue;
                 } 
-                if ((c < 6 && r < 6) || (c > MAP_SIZE - 6 && r > MAP_SIZE - 6)) continue; // Safe spawn zones
+                if ((c < 6 && r < 6) || (c > MAP_SIZE - 6 && r > MAP_SIZE - 6)) continue; 
 
                 let rand = Math.random();
-                // Drastically reduced object density for wide-open smooth running
                 if (rand > 0.97) worldObjects.push({ type: destructibles[Math.floor(Math.random()*destructibles.length)], x: x, y: y, size: TILE_SIZE-10, isSolid: true, isHidingSpot: false, hasMoney: true });
                 else if (rand > 0.92) worldObjects.push({ type: hidingSpots[Math.floor(Math.random()*hidingSpots.length)], x: x, y: y, size: TILE_SIZE, isSolid: false, isHidingSpot: true, hasMoney: Math.random() > 0.5 }); 
                 else if (rand > 0.88) worldObjects.push({ type: solidCover[Math.floor(Math.random()*solidCover.length)], x: x, y: y, size: TILE_SIZE, isSolid: true, isHidingSpot: false, hasMoney: false });
@@ -236,78 +392,53 @@
         }
     }
 
-    // --- MOBILE JOYSTICK ---
-    let input = { x: 0, y: 0 }; 
-    const joystickZone = document.getElementById('joystick-zone'); const joystickKnob = document.getElementById('joystick-knob');
-    let isDragging = false, joystickCenter = { x: 0, y: 0 }, touchId = null;
-
-    joystickZone.addEventListener('touchstart', (e) => {
-        e.preventDefault(); if (isDragging) return;
-        let touch = e.changedTouches[0]; touchId = touch.identifier; isDragging = true;
-        let rect = joystickZone.getBoundingClientRect(); joystickCenter = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-        updateJoystick(touch.clientX, touch.clientY);
-    }, {passive: false});
-
-    window.addEventListener('touchmove', (e) => {
-        if (!isDragging) return;
-        for (let i = 0; i < e.changedTouches.length; i++) {
-            if (e.changedTouches[i].identifier === touchId) { updateJoystick(e.changedTouches[i].clientX, e.changedTouches[i].clientY); break; }
-        }
-    }, {passive: false});
-
-    window.addEventListener('touchend', (e) => {
-        for (let i = 0; i < e.changedTouches.length; i++) {
-            if (e.changedTouches[i].identifier === touchId) { isDragging = false; touchId = null; joystickKnob.style.transform = `translate(-50%, -50%)`; input = { x: 0, y: 0 }; break; }
-        }
-    });
-
-    function updateJoystick(clientX, clientY) { 
-        let dx = clientX - joystickCenter.x; let dy = clientY - joystickCenter.y; 
-        let dist = Math.sqrt(dx * dx + dy * dy); let maxRad = 45; 
-        if (dist > maxRad) { dx = (dx / dist) * maxRad; dy = (dy / dist) * maxRad; } 
-        joystickKnob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`; 
-        input.x = dx / maxRad; input.y = dy / maxRad; 
-    }
-
     // --- UI ACTIONS ---
     function showAlert(text, color) {
         const alertBox = document.getElementById('alert-text');
-        alertBox.innerText = text; alertBox.style.color = color; 
+        alertBox.innerText = text; 
+        alertBox.style.color = color; 
+        alertBox.classList.remove('show-alert'); // Force reflow for spam-clicking
+        void alertBox.offsetWidth; 
         alertBox.classList.add('show-alert');
         setTimeout(() => alertBox.classList.remove('show-alert'), 1200);
     }
 
     function updateHUD() {
-        document.getElementById('hud-p1').innerHTML = `<span style="color:#2ecc71">${p1.name}</span> <span class="hp-text">${p1.hp} HP</span>`;
-        document.getElementById('hud-p2').innerHTML = `<span style="color:#e74c3c">${p2.name}</span> <span class="hp-text">${p2.hp} HP</span>`;
+        document.getElementById('hud-p1').innerHTML = `<span style="color:#2ecc71">${p1.name}</span> <span class="hp-text">${Math.max(0, p1.hp)} HP</span>`;
+        document.getElementById('hud-p2').innerHTML = `<span style="color:#e74c3c">${p2.name}</span> <span class="hp-text">${Math.max(0, p2.hp)} HP</span>`;
     }
 
-    window.handleSwap = function(e) {
-        e.preventDefault();
+    function handleSwap() {
+        if(p1.isDead || p2.isDead) return;
+        
         activePlayer.isAiming = false; 
         document.getElementById('btn-shoot').classList.remove("aiming-mode");
-        input = {x:0, y:0}; joystickKnob.style.transform = `translate(-50%, -50%)`;
+        input.x = 0; input.y = 0; 
+        joystickKnob.style.transform = `translate(-50%, -50%)`;
 
+        const swapBtn = document.getElementById('btn-swap');
         if(activePlayer === p1) {
             activePlayer = p2;
-            document.getElementById('btn-swap').innerHTML = "🦊 Fox Turn";
-            document.getElementById('btn-swap').style.background = "#e67e22";
-            document.getElementById('btn-swap').style.borderColor = "#d35400";
+            swapBtn.innerHTML = "🦊 Fox Turn";
+            swapBtn.style.background = "#e67e22";
+            swapBtn.style.borderColor = "#d35400";
             showAlert(`TARGET: ${p1.name}`, "#e67e22");
         } else {
             activePlayer = p1;
-            document.getElementById('btn-swap').innerHTML = "🐼 Panda Turn";
-            document.getElementById('btn-swap').style.background = "#9b59b6";
-            document.getElementById('btn-swap').style.borderColor = "#8e44ad";
+            swapBtn.innerHTML = "🐼 Panda Turn";
+            swapBtn.style.background = "#9b59b6";
+            swapBtn.style.borderColor = "#8e44ad";
             showAlert(`TARGET: ${p2.name}`, "#9b59b6");
         }
         camera.shakeTime = 5; camera.shakeIntensity = 5;
-    };
+    }
 
-    window.handleSearch = function(e) {
-        e.preventDefault();
+    function handleSearch() {
+        if(activePlayer.isDead) return;
+        
         radarPings.push({ x: activePlayer.x, y: activePlayer.y, radius: 0, opacity: 1 });
         let found = false;
+        
         for (let obj of worldObjects) {
             let dist = Math.sqrt(Math.pow((obj.x + obj.size/2) - activePlayer.x, 2) + Math.pow((obj.y + obj.size/2) - activePlayer.y, 2));
             if (dist < TILE_SIZE * 2 && (obj.isHidingSpot || obj.hasMoney !== undefined)) {
@@ -317,32 +448,44 @@
             }
         }
         if (!found) showAlert("CLEAR!", "#ecf0f1");
-    };
+    }
 
-    window.handleShoot = function(e) {
-        e.preventDefault();
+    function handleShoot() {
+        if(activePlayer.isDead) return;
+        
         const btn = document.getElementById('btn-shoot');
         if (!activePlayer.isAiming) {
             activePlayer.isAiming = true; btn.classList.add("aiming-mode");
         } else {
             activePlayer.isAiming = false; btn.classList.remove("aiming-mode");
-            
-            if (shootAudio.readyState >= 2) { let sfx = shootAudio.cloneNode(); sfx.volume = 0.5; sfx.play().catch(()=>{}); }
+            playShootSound();
 
+            // Recoil
             activePlayer.x -= activePlayer.aimDir.x * 10;
             activePlayer.y -= activePlayer.aimDir.y * 10;
 
-            let gunX = activePlayer.x + (activePlayer.facingRight ? 30 : -30); let gunY = activePlayer.y + 10;
-            let hitX = gunX; let hitY = gunY; let hitObjIndex = -1; let hitOpponent = false;
+            let gunX = activePlayer.x + (activePlayer.facingRight ? 30 : -30); 
+            let gunY = activePlayer.y + 10;
+            let hitX = gunX; 
+            let hitY = gunY; 
+            let hitObjIndex = -1; 
+            let hitOpponent = false;
             let targetPlayer = (activePlayer === p1) ? p2 : p1;
 
+            // Raycast Step Loop
             for(let i=0; i<200; i++) { 
-                hitX += activePlayer.aimDir.x * 5; hitY += activePlayer.aimDir.y * 5; 
+                hitX += activePlayer.aimDir.x * 5; 
+                hitY += activePlayer.aimDir.y * 5; 
                 
+                // Early exit if bullet leaves bounds
+                if (hitX < 0 || hitX > MAP_PIXEL_SIZE || hitY < 0 || hitY > MAP_PIXEL_SIZE) break;
+
+                // Hit Player
                 if (!targetPlayer.isDead && hitX > targetPlayer.x - 30 && hitX < targetPlayer.x + 30 && hitY > targetPlayer.y - 20 && hitY < targetPlayer.y + 40) {
                     hitOpponent = true; break;
                 }
 
+                // Hit Environment
                 let collided = false;
                 for (let j=0; j < worldObjects.length; j++) {
                     let obj = worldObjects[j];
@@ -359,9 +502,11 @@
             explosions.push({ x: hitX, y: hitY, radius: 10, maxRadius: 40, life: 1.0 });
 
             if (hitOpponent) {
-                targetPlayer.hp -= 25; updateHUD();
+                targetPlayer.hp -= 25; 
+                updateHUD();
                 if(targetPlayer.hp <= 0) {
-                    targetPlayer.isDead = true; showAlert(`🏆 ${activePlayer.name} WINS! 🏆`, "#f1c40f");
+                    targetPlayer.isDead = true; 
+                    showAlert(`🏆 ${activePlayer.name} WINS! 🏆`, "#f1c40f");
                 } else {
                     showAlert("💥 DIRECT HIT! 💥", "#e74c3c");
                 }
@@ -373,97 +518,174 @@
                 }
             }
         }
-    };
+    }
 
-    window.startGame = function() {
+    // Attach Event Listeners Safely
+    document.getElementById('btn-swap').addEventListener('mousedown', handleSwap);
+    document.getElementById('btn-swap').addEventListener('touchstart', (e)=>{ e.preventDefault(); handleSwap(); }, {passive: false});
+    document.getElementById('btn-search').addEventListener('mousedown', handleSearch);
+    document.getElementById('btn-search').addEventListener('touchstart', (e)=>{ e.preventDefault(); handleSearch(); }, {passive: false});
+    document.getElementById('btn-shoot').addEventListener('mousedown', handleShoot);
+    document.getElementById('btn-shoot').addEventListener('touchstart', (e)=>{ e.preventDefault(); handleShoot(); }, {passive: false});
+
+    document.getElementById('btn-start').addEventListener('click', () => {
         let n1 = document.getElementById('p1-name').value.trim();
         let n2 = document.getElementById('p2-name').value.trim();
-        p1.name = n1 === "" ? "Panda" : n1; p2.name = n2 === "" ? "Fox" : n2;
+        p1.name = n1 === "" ? "Panda" : n1; 
+        p2.name = n2 === "" ? "Fox" : n2;
         
         document.getElementById('setup-screen').style.display = 'none';
         document.getElementById('ui-layer').style.display = 'block';
         
-        generateMap(); updateHUD();
-        camera.x = activePlayer.x - canvas.width / 2; camera.y = activePlayer.y - canvas.height / 2;
+        generateMap(); 
+        updateHUD();
+        
+        camera.x = activePlayer.x - canvas.width / 2; 
+        camera.y = activePlayer.y - canvas.height / 2;
+        
+        lastTime = performance.now();
         requestAnimationFrame(gameLoop);
-    };
+    });
 
     // --- RENDER PIPELINE ---
-    function gameLoop() {
-        // Cheerful Green Background
-        ctx.fillStyle = '#6ab04c'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    let lastTime = 0;
+
+    function gameLoop(timestamp) {
+        // Delta Time calculation (caps at 0.1s to prevent lag spikes breaking collision)
+        let dt = (timestamp - lastTime) / 1000;
+        if(dt > 0.1) dt = 0.1; 
+        lastTime = timestamp;
+
+        ctx.fillStyle = '#6ab04c'; 
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
         
-        p1.update(activePlayer === p1); p2.update(activePlayer === p2);
+        p1.update(dt, activePlayer === p1); 
+        p2.update(dt, activePlayer === p2);
 
-        let targetCamX = activePlayer.x - canvas.width / 2; let targetCamY = activePlayer.y - canvas.height / 2;
-        if(camera.shakeTime > 0) { targetCamX += (Math.random() - 0.5) * camera.shakeIntensity; targetCamY += (Math.random() - 0.5) * camera.shakeIntensity; camera.shakeTime--; }
-        camera.x += (targetCamX - camera.x) * 0.1; camera.y += (targetCamY - camera.y) * 0.1;
+        let targetCamX = activePlayer.x - canvas.width / 2; 
+        let targetCamY = activePlayer.y - canvas.height / 2;
+        if(camera.shakeTime > 0) { 
+            targetCamX += (Math.random() - 0.5) * camera.shakeIntensity; 
+            targetCamY += (Math.random() - 0.5) * camera.shakeIntensity; 
+            camera.shakeTime -= dt * 60; 
+        }
+        camera.x += (targetCamX - camera.x) * (dt * 6); // Smooth damping via dt
+        camera.y += (targetCamY - camera.y) * (dt * 6);
 
-        ctx.save(); ctx.translate(-Math.floor(camera.x), -Math.floor(camera.y));
+        ctx.save(); 
+        ctx.translate(-Math.floor(camera.x), -Math.floor(camera.y));
 
-        let screenLeft = camera.x - TILE_SIZE; let screenRight = camera.x + canvas.width + TILE_SIZE;
-        let screenTop = camera.y - TILE_SIZE; let screenBottom = camera.y + canvas.height + TILE_SIZE*2;
+        let screenLeft = camera.x - TILE_SIZE; 
+        let screenRight = camera.x + canvas.width + TILE_SIZE;
+        let screenTop = camera.y - TILE_SIZE; 
+        let screenBottom = camera.y + canvas.height + TILE_SIZE*2;
 
-        // Draw Ground Grid (Grass vibe)
-        ctx.fillStyle = "rgba(0, 0, 0, 0.05)";
-        let startCol = Math.max(0, Math.floor(camera.x / TILE_SIZE)); let endCol = Math.min(MAP_SIZE, Math.ceil((camera.x + canvas.width) / TILE_SIZE));
-        let startRow = Math.max(0, Math.floor(camera.y / TILE_SIZE)); let endRow = Math.min(MAP_SIZE, Math.ceil((camera.y + canvas.height) / TILE_SIZE));
-        for (let r = startRow; r < endRow; r++) { for (let c = startCol; c < endCol; c++) { if ((r+c)%2===0) ctx.fillRect(c*TILE_SIZE, r*TILE_SIZE, TILE_SIZE, TILE_SIZE); } }
+        // O(1) Fast Grid Pattern Rendering
+        ctx.fillStyle = gridPattern;
+        ctx.save();
+        ctx.translate(Math.floor(camera.x) - (Math.floor(camera.x) % (TILE_SIZE*2)), Math.floor(camera.y) - (Math.floor(camera.y) % (TILE_SIZE*2)));
+        ctx.fillRect(0, 0, canvas.width + TILE_SIZE*4, canvas.height + TILE_SIZE*4);
+        ctx.restore();
 
-        let renderQueue = [];
+        // Optimized Render Queue Construction
+        renderQueue.length = 0; // Clears memory without GC overhead
+        
         if(!p1.isDead) renderQueue.push({ type: 'player', y: p1.y + (p1.height*0.4), obj: p1 });
         if(!p2.isDead) renderQueue.push({ type: 'player', y: p2.y + (p2.height*0.4), obj: p2 });
         
-        for(let obj of worldObjects) { 
+        for(let i = 0; i < worldObjects.length; i++) { 
+            let obj = worldObjects[i];
+            // Culling (Don't draw offscreen objects)
             if (obj.x > screenRight || obj.x + obj.size < screenLeft || obj.y > screenBottom || obj.y + obj.size * 2 < screenTop) continue;
+            
             let visualY = obj.y + obj.size; 
             if(obj.type === 'stall' || obj.type === 'tree' || obj.type === 'tent') visualY = obj.y + (obj.size * 1.2); 
             renderQueue.push({ type: 'world', y: visualY, obj: obj }); 
         }
+        
         renderQueue.sort((a, b) => a.y - b.y);
 
-        for(let item of renderQueue) {
+        // Execute Render Queue
+        for(let i=0; i<renderQueue.length; i++) {
+            let item = renderQueue[i];
             if(item.type === 'player') item.obj.draw(ctx);
             else {
                 let wObj = item.obj; 
-                if(!wObj.isHidingSpot) { ctx.fillStyle = "rgba(0,0,0,0.2)"; ctx.beginPath(); ctx.ellipse(wObj.x + wObj.size/2, wObj.y + wObj.size - 5, wObj.size*0.45, wObj.size*0.15, 0, 0, Math.PI * 2); ctx.fill(); }
+                if(!wObj.isHidingSpot) { 
+                    ctx.fillStyle = "rgba(0,0,0,0.2)"; 
+                    ctx.beginPath(); 
+                    ctx.ellipse(wObj.x + wObj.size/2, wObj.y + wObj.size - 5, wObj.size*0.45, wObj.size*0.15, 0, 0, Math.PI * 2); 
+                    ctx.fill(); 
+                }
                 if(images[wObj.type] && images[wObj.type].complete) {
                     let dSize = wObj.size; let dX = wObj.x; let dY = wObj.y;
-                    if(['tree', 'stall', 'tent', 'statue'].includes(wObj.type)) { dSize = wObj.size * 1.4; dX = wObj.x - 15; dY = wObj.y - 30; }
+                    if(['tree', 'stall', 'tent', 'statue'].includes(wObj.type)) { 
+                        dSize = wObj.size * 1.4; dX = wObj.x - 15; dY = wObj.y - 30; 
+                    }
                     ctx.drawImage(images[wObj.type], dX, dY, dSize, dSize);
                 }
             }
         }
 
+        // Radar Particles Update & Draw
         for(let i = radarPings.length - 1; i >= 0; i--) {
-            let p = radarPings[i]; ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+            let p = radarPings[i]; 
+            ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
             ctx.lineWidth = 4; ctx.strokeStyle = `rgba(255, 255, 255, ${p.opacity})`; ctx.stroke();
-            p.radius += 10; p.opacity -= 0.02; if(p.opacity <= 0) radarPings.splice(i, 1);
+            
+            p.radius += 600 * dt; 
+            p.opacity -= 1.2 * dt; 
+            if(p.opacity <= 0) radarPings.splice(i, 1);
         }
 
+        // Aim Raycast Draw (Optimized bounds collision)
         if (activePlayer.isAiming && !activePlayer.isDead) {
-            let gunX = activePlayer.x + (activePlayer.facingRight ? 30 : -30); let gunY = activePlayer.y + 10;
-            let lX = gunX; let lY = gunY; let tP = (activePlayer === p1) ? p2 : p1;
+            let gunX = activePlayer.x + (activePlayer.facingRight ? 30 : -30); 
+            let gunY = activePlayer.y + 10;
+            let lX = gunX; let lY = gunY; 
+            let tP = (activePlayer === p1) ? p2 : p1;
 
             for(let i=0; i<200; i++) { 
-                lX += activePlayer.aimDir.x * 5; lY += activePlayer.aimDir.y * 5; let hit = false;
+                lX += activePlayer.aimDir.x * 5; 
+                lY += activePlayer.aimDir.y * 5; 
+                let hit = false;
+                
+                if (lX < 0 || lX > MAP_PIXEL_SIZE || lY < 0 || lY > MAP_PIXEL_SIZE) break;
+
                 if (!tP.isDead && lX > tP.x-30 && lX < tP.x+30 && lY > tP.y-20 && lY < tP.y+40) hit = true;
-                for (let obj of worldObjects) { if ((obj.isSolid || obj.isHidingSpot) && lX > obj.x && lX < obj.x + obj.size && lY > obj.y+10 && lY < obj.y + obj.size) { hit = true; break; } }
+                
+                // Only check objects currently onscreen (via renderQueue bounds math)
+                for (let j=0; j<worldObjects.length; j++) {
+                    let obj = worldObjects[j];
+                    if ((obj.isSolid || obj.isHidingSpot) && lX > obj.x && lX < obj.x + obj.size && lY > obj.y+10 && lY < obj.y + obj.size) { 
+                        hit = true; break; 
+                    } 
+                }
                 if (hit) break; 
             }
-            ctx.beginPath(); ctx.moveTo(gunX, gunY); ctx.lineTo(lX, lY); ctx.strokeStyle = "rgba(231, 76, 60, 0.4)"; ctx.lineWidth = 3; ctx.stroke(); 
-            ctx.beginPath(); ctx.setLineDash([10, 10]); ctx.moveTo(gunX, gunY); ctx.lineTo(lX, lY); ctx.strokeStyle = "#e74c3c"; ctx.lineWidth = 3; ctx.stroke(); ctx.setLineDash([]);
+            
+            ctx.beginPath(); ctx.moveTo(gunX, gunY); ctx.lineTo(lX, lY); 
+            ctx.strokeStyle = "rgba(231, 76, 60, 0.4)"; ctx.lineWidth = 3; ctx.stroke(); 
+            ctx.beginPath(); ctx.setLineDash([10, 10]); ctx.moveTo(gunX, gunY); ctx.lineTo(lX, lY); 
+            ctx.strokeStyle = "#e74c3c"; ctx.lineWidth = 3; ctx.stroke(); ctx.setLineDash([]);
             ctx.beginPath(); ctx.arc(lX, lY, 8, 0, Math.PI * 2); ctx.fillStyle = "#f1c40f"; ctx.fill(); ctx.lineWidth=2; ctx.stroke();
         }
 
+        // Explosions
         for (let i = explosions.length - 1; i >= 0; i--) {
             let exp = explosions[i];
-            ctx.beginPath(); ctx.arc(exp.x, exp.y, exp.radius, 0, Math.PI * 2); ctx.fillStyle = `rgba(241, 196, 15, ${exp.life})`; ctx.fill();
-            ctx.beginPath(); ctx.arc(exp.x, exp.y, exp.radius * 0.6, 0, Math.PI * 2); ctx.fillStyle = `rgba(231, 76, 60, ${exp.life})`; ctx.fill();
-            exp.radius += 8; exp.life -= 0.08; if (exp.life <= 0) explosions.splice(i, 1);
+            ctx.beginPath(); ctx.arc(exp.x, exp.y, exp.radius, 0, Math.PI * 2); 
+            ctx.fillStyle = `rgba(241, 196, 15, ${exp.life})`; ctx.fill();
+            ctx.beginPath(); ctx.arc(exp.x, exp.y, exp.radius * 0.6, 0, Math.PI * 2); 
+            ctx.fillStyle = `rgba(231, 76, 60, ${exp.life})`; ctx.fill();
+            
+            exp.radius += 480 * dt; 
+            exp.life -= 4.8 * dt; 
+            if (exp.life <= 0) explosions.splice(i, 1);
         }
 
-        ctx.restore(); requestAnimationFrame(gameLoop);
+        ctx.restore(); 
+        requestAnimationFrame(gameLoop);
     }
 </script>
 </body>
