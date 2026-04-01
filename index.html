@@ -51,7 +51,8 @@
         .blue-btn { background: #3498db; border-color: #2980b9; box-shadow: 0 6px 0 #2980b9; }
         .green-btn { background: #2ecc71; border-color: #27ae60; box-shadow: 0 6px 0 #27ae60; }
         
-        .link-box { background: #fff; padding: 10px; font-size: 16px; border-radius: 8px; border: 2px solid #333; word-break: break-all; margin-top: 10px; user-select: all; }
+        .link-box { background: #fff; padding: 10px; font-size: 16px; border-radius: 8px; border: 2px solid #333; word-break: break-all; margin-top: 10px; user-select: all; cursor: pointer; transition: background 0.2s;}
+        .link-box:hover { background: #f1f2f6; }
     </style>
 </head>
 <body>
@@ -75,8 +76,8 @@
         
         <div class="setup-box" id="waiting-box" style="display: none;">
             <h2 style="font-size: 24px;">Waiting for Friend</h2>
-            <p style="font-size: 14px; margin-top: 10px;">Share this link to play:</p>
-            <div class="link-box" id="share-link">...</div>
+            <p style="font-size: 14px; margin-top: 10px;">Share this link to play (Click to copy):</p>
+            <div class="link-box" id="share-link" title="Click to copy">...</div>
             <p style="font-size: 16px; margin-top: 15px; color: #d35400;">Waiting for connection...</p>
         </div>
 
@@ -145,18 +146,19 @@
     // ==========================================
     let roomId = new URLSearchParams(window.location.search).get('room');
     let myId = Math.random().toString(36).substr(2, 9);
+    let remoteId = null; // Tracked properly now
     let isHost = false;
-    let myRole = null; // 'Fox' or 'Panda'
+    let myRole = null; 
     let roomRef = null;
-    let gameState = "menu"; // menu, waiting, selecting, hiding, playing, finished
+    let gameState = "menu"; 
     
     // Fox specific state
     let foxInventory = { gold: 5, bombs: 2 };
-    let placingItem = 'gold'; // 'gold' or 'bomb'
+    let placingItem = 'gold'; 
     
     // Panda specific state
     let pandaHasPassword = false;
-    let mapItems = {}; // { objIndex: 'gold'|'bomb' }
+    let mapItems = {}; 
     let passwordObjIndex = -1;
     let safeObjIndex = -1;
 
@@ -281,7 +283,7 @@
     class Player {
         constructor(x, y, isLocal) {
             this.x = x; this.y = y; 
-            this.targetX = x; this.targetY = y; // For network lerping
+            this.targetX = x; this.targetY = y;
             this.width = 100; this.height = 100; 
             this.speed = 420; this.hitboxW = 30; this.hitboxH = 25; 
             this.hp = 100; this.isDead = false; this.role = "";
@@ -432,6 +434,20 @@
         if (roomId) document.getElementById('join-section').style.display = 'block';
     }
 
+    // Interactive Share Link
+    document.getElementById('share-link').onclick = function() {
+        navigator.clipboard.writeText(this.innerText);
+        let oldText = this.innerText;
+        this.innerText = "COPIED TO CLIPBOARD!";
+        this.style.background = "#2ecc71";
+        this.style.color = "white";
+        setTimeout(() => {
+            this.innerText = oldText;
+            this.style.background = "#fff";
+            this.style.color = "#130f40";
+        }, 1500);
+    };
+
     document.getElementById('btn-create-room').onclick = () => {
         isHost = true;
         roomId = Math.random().toString(36).substr(2, 6).toUpperCase();
@@ -470,23 +486,20 @@
     }
 
     function setupRoomListeners() {
-        // Map Seed
         roomRef.child('mapSeed').once('value', s => { window.dbMapSeed = s.val(); generateMap(); });
 
-        // Players 
         roomRef.child('players').on('value', snap => {
             let data = snap.val();
             if(!data) return;
             let keys = Object.keys(data);
             
-            // Check if 2 players connected
             if(isHost && gameState === 'waiting' && keys.length === 2) {
                 roomRef.update({ gameState: 'selecting' });
             }
 
-            // Sync remote player
             for(let id of keys) {
                 if(id !== myId) {
+                    remoteId = id; // Safely track remote player ID
                     let p = data[id];
                     remotePlayer.targetX = p.x !== undefined ? p.x : remotePlayer.targetX;
                     remotePlayer.targetY = p.y !== undefined ? p.y : remotePlayer.targetY;
@@ -502,7 +515,7 @@
                         resetPositions();
                     }
                     if(p.hp !== undefined && p.hp !== localPlayer.hp) {
-                        localPlayer.hp = p.hp; // Take network damage
+                        localPlayer.hp = p.hp; 
                         if(localPlayer.hp <= 0 && gameState === 'playing') checkWinCondition();
                     }
                     if(p.teleportX !== undefined) {
@@ -515,38 +528,54 @@
             updateHUD();
         });
 
-        // Game State
+        // FIXED: The Game State Listener logic preventing lobby closure
         roomRef.child('gameState').on('value', s => {
             gameState = s.val();
-            document.getElementById('lobby-screen').style.display = 'none';
-            document.getElementById('blocker-screen').style.display = 'none';
-            document.getElementById('ui-layer').style.display = 'block';
+            
+            const lobbyScreen = document.getElementById('lobby-screen');
+            const blockerScreen = document.getElementById('blocker-screen');
+            const uiLayer = document.getElementById('ui-layer');
 
-            if(gameState === 'selecting') {
+            // Default reset states
+            blockerScreen.style.display = 'none';
+            uiLayer.style.display = 'none';
+
+            if(gameState === 'waiting') {
+                lobbyScreen.style.display = 'flex';
+            }
+            else if(gameState === 'selecting') {
+                lobbyScreen.style.display = 'flex';
                 if(isHost) {
-                    document.getElementById('lobby-screen').style.display = 'flex';
+                    document.getElementById('lobby-box').style.display = 'none';
                     document.getElementById('waiting-box').style.display = 'none';
                     document.getElementById('role-box').style.display = 'flex';
                 } else {
-                    document.getElementById('blocker-screen').style.display = 'flex';
+                    lobbyScreen.style.display = 'none'; // Guest hides lobby entirely
+                    blockerScreen.style.display = 'flex';
                     document.getElementById('blocker-title').innerText = "WAITING";
                     document.getElementById('blocker-desc').innerText = "Host is selecting roles...";
                 }
             }
             else if(gameState === 'hiding') {
+                lobbyScreen.style.display = 'none';
+                uiLayer.style.display = 'block';
                 document.getElementById('btn-search').style.display = 'none';
+                
                 if(myRole === 'Fox') {
                     document.getElementById('btn-toggle-item').style.display = 'flex';
                     document.getElementById('btn-shoot').style.display = 'flex';
                     showAlert("HIDE YOUR ITEMS!", "#f1c40f");
                 } else {
-                    document.getElementById('blocker-screen').style.display = 'flex';
+                    blockerScreen.style.display = 'flex';
                     document.getElementById('blocker-title').innerText = "FOX IS HIDING ITEMS";
                     document.getElementById('blocker-desc').innerText = "Look away! Game starts soon.";
                 }
             }
             else if(gameState === 'playing') {
+                lobbyScreen.style.display = 'none';
+                uiLayer.style.display = 'block';
                 document.getElementById('btn-toggle-item').style.display = 'none';
+                
                 if(myRole === 'Fox') {
                     document.getElementById('btn-shoot').style.display = 'flex';
                     document.getElementById('btn-search').style.display = 'none';
@@ -558,20 +587,17 @@
                 }
             }
             else if(gameState === 'finished') {
-                document.getElementById('blocker-screen').style.display = 'flex';
+                lobbyScreen.style.display = 'none';
+                blockerScreen.style.display = 'flex';
                 document.getElementById('blocker-title').innerText = "GAME OVER";
                 document.getElementById('blocker-desc').innerText = "Returning to lobby shortly...";
                 setTimeout(() => window.location.href = window.location.href.split('?')[0], 5000);
             }
         });
 
-        // Items Sync
         roomRef.child('items').on('value', s => { mapItems = s.val() || {}; });
-
-        // Timers Sync
         roomRef.child('timer').on('value', s => { window.serverEndTime = s.val(); });
 
-        // Stats Sync
         roomRef.child('stats').on('value', s => { 
             let stats = s.val(); 
             if(stats && stats.goldFound !== undefined && gameState === 'playing' && isHost && stats.goldFound >= 5) {
@@ -579,7 +605,6 @@
             }
         });
 
-        // Events (Shoot/Explosion)
         roomRef.child('events').on('child_added', s => {
             let ev = s.val();
             if(ev.type === 'shoot') {
@@ -587,10 +612,9 @@
                 explosions.push({ x: ev.x, y: ev.y, radius: 10, maxRadius: 40, life: 1.0 });
                 camera.shakeTime = 10; camera.shakeIntensity = 15; 
             }
-            s.ref.remove(); // Cleanup event
+            s.ref.remove(); 
         });
         
-        // Start network sync loop
         setInterval(syncLocalPlayer, 100);
         setInterval(updateTimerDisplay, 500);
         if(!window.gameRunning) { window.gameRunning = true; lastTime = performance.now(); requestAnimationFrame(gameLoop); }
@@ -606,7 +630,6 @@
             roomRef.child('players/' + myId).update({ role: hostRole, hp: 100 });
             roomRef.child('players/' + otherId).update({ role: hostRole === 'Fox' ? 'Panda' : 'Fox', hp: 100 });
             
-            // Start Hiding Phase (60s)
             roomRef.update({ gameState: 'hiding', timer: Date.now() + 60000 });
         });
     }
@@ -655,12 +678,11 @@
 
         if(isHost && left <= 0) {
             if(gameState === 'hiding') {
-                // Auto-place remaining
                 for(let i=0; i<foxInventory.gold; i++) autoPlace('gold');
                 for(let i=0; i<foxInventory.bombs; i++) autoPlace('bomb');
                 roomRef.update({ gameState: 'playing', timer: Date.now() + 5 * 60000 });
             } else if (gameState === 'playing') {
-                checkWinCondition(); // Timer out -> Fox wins automatically
+                checkWinCondition(); 
             }
         }
     }
@@ -687,7 +709,6 @@
         if(localPlayer.isDead || !myRole) return;
         const btn = document.getElementById('btn-shoot');
 
-        // Aim Toggle
         if (!localPlayer.isAiming) {
             localPlayer.isAiming = true; btn.classList.add("aiming-mode");
             return;
@@ -721,10 +742,8 @@
             if (collided) break; 
         }
 
-        // Send visual event
         roomRef.child('events').push({ type: 'shoot', x: hitX, y: hitY });
 
-        // Phase Logic
         if (gameState === 'hiding' && myRole === 'Fox') {
             if(hitObjIndex !== -1 && !solidCover.includes(worldObjects[hitObjIndex].type)) {
                 if(hitObjIndex === safeObjIndex || hitObjIndex === passwordObjIndex) {
@@ -750,19 +769,15 @@
             }
         } 
         else if (gameState === 'playing' && myRole === 'Fox') {
-            if(hitPanda) {
-                // Distance check
+            if(hitPanda && remoteId) {
                 let dist = Math.sqrt(Math.pow(localPlayer.x - remotePlayer.x, 2) + Math.pow(localPlayer.y - remotePlayer.y, 2));
-                if(dist < 320) { // Approx 4 tiles
+                if(dist < 320) { 
                     showAlert("PANDA HIT!", "#2ecc71");
-                    let remoteId = Object.keys(mapItems).length > 0 ? null : null; // Hack to find remote ID 
-                    let rId = null;
-                    roomRef.child('players').once('value', s => {
-                        let d = s.val(); for(let k in d) { if(k !== myId) rId = k; }
-                        roomRef.child('players/' + rId).update({ hp: Math.max(0, remotePlayer.hp - 10) });
-                    });
                     
-                    // Teleport Fox back to start
+                    // Directly deduct health securely
+                    roomRef.child('players/' + remoteId).update({ hp: Math.max(0, remotePlayer.hp - 10) });
+                    
+                    // Teleport Fox back
                     localPlayer.x = (MAP_SIZE - 4) * TILE_SIZE; localPlayer.y = (MAP_SIZE - 4) * TILE_SIZE;
                     roomRef.child('players/' + myId).update({ x: localPlayer.x, y: localPlayer.y });
                 } else {
@@ -791,7 +806,7 @@
                         localPlayer.hp = Math.min(100, localPlayer.hp + 30);
                         roomRef.child('players/' + myId).update({ hp: localPlayer.hp });
                         showAlert("💉 HEALTH +30%!", "#2ecc71");
-                        worldObjects[i].type = 'crate'; // Change visually
+                        worldObjects[i].type = 'crate'; 
                     } else {
                         showAlert("LOCKED! NEED PASSWORD", "#e74c3c");
                     }
@@ -816,7 +831,6 @@
         if (!foundSomething) showAlert("NOTHING HERE...", "#ecf0f1");
     }
 
-    // Connect mobile buttons
     document.getElementById('btn-search').addEventListener('pointerdown', (e) => { e.preventDefault(); handleSearch(); });
     document.getElementById('btn-shoot').addEventListener('pointerdown', (e) => { e.preventDefault(); handleShoot(); });
 
@@ -883,7 +897,6 @@
             }
         }
 
-        // Radar Pings
         for(let i = radarPings.length - 1; i >= 0; i--) {
             let p = radarPings[i]; 
             ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
@@ -892,7 +905,6 @@
             if(p.opacity <= 0) radarPings.splice(i, 1);
         }
 
-        // Aiming Line Rendering
         const drawAimLine = (p) => {
             if (p.isAiming && !p.isDead) {
                 let gunX = p.x + (p.facingRight ? 30 : -30); let gunY = p.y + 10;
@@ -914,7 +926,6 @@
         };
         drawAimLine(localPlayer); drawAimLine(remotePlayer);
 
-        // Explosions
         for (let i = explosions.length - 1; i >= 0; i--) {
             let exp = explosions[i];
             ctx.beginPath(); ctx.arc(exp.x, exp.y, exp.radius, 0, Math.PI * 2); ctx.fillStyle = `rgba(241, 196, 15, ${exp.life})`; ctx.fill();
@@ -927,4 +938,4 @@
     }
 </script>
 </body>
-                    </html>
+    </html>
