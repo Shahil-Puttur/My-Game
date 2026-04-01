@@ -46,11 +46,11 @@
         .bg-dark { background: rgba(0,0,0,0.85); color: white; }
         .setup-box { background: #badc58; padding: 25px; border-radius: 20px; border: 5px solid #22a6b3; box-shadow: 0 10px 20px rgba(0,0,0,0.3); width: 95%; max-width: 450px; display: flex; flex-direction: column; gap: 15px; color:#130f40;}
         
-        input[type="text"] { padding: 12px; font-size: 20px; font-weight: bold; text-align: center; border-radius: 10px; border: 3px solid #333; outline: none; font-family: inherit; width: 100%;}
+        input[type="text"] { padding: 15px; font-size: 20px; font-weight: bold; text-align: center; border-radius: 12px; border: 3px solid #333; outline: none; font-family: inherit; width: 100%;}
         .main-btn { padding: 15px; font-size: 20px; color: white; font-weight: 900; border-radius: 12px; cursor: pointer; text-transform: uppercase; border: 3px solid #333; transition: transform 0.1s; box-shadow: 0 6px 0 rgba(0,0,0,0.2);}
         .main-btn:active { transform: translateY(6px); box-shadow: none; }
         
-        .btn-blue { background: #3498db; } .btn-green { background: #2ecc71; } .btn-orange { background: #e67e22; } .btn-gray { background: #95a5a6; }
+        .btn-blue { background: #3498db; } .btn-green { background: #2ecc71; } .btn-orange { background: #e67e22; } .btn-gray { background: #95a5a6; } .btn-red { background: #e74c3c; }
         
         /* LOBBY PLAYER LIST */
         .player-row { display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.5); padding: 10px 15px; border-radius: 10px; border: 2px solid rgba(0,0,0,0.1); font-size: 16px; font-weight: 900; gap: 10px;}
@@ -59,9 +59,6 @@
         
         .status-badge { padding: 5px 8px; border-radius: 8px; font-size: 12px; color: white; background: #e74c3c; border: 2px solid #c0392b; white-space: nowrap;}
         .status-ready { background: #2ecc71; border-color: #27ae60; }
-        
-        .link-box { background: #fff; padding: 10px; font-size: 14px; border-radius: 8px; border: 2px dashed #333; word-break: break-all; cursor: pointer; font-family: monospace; }
-        .link-box:active { background: #ddd; }
         
         #big-countdown { font-size: 120px; color: #f1c40f; -webkit-text-stroke: 3px #000; text-shadow: 0 10px 0 #000; font-weight: 900; margin-top: 20px;}
     </style>
@@ -86,14 +83,36 @@
         </div>
     </div>
 
-    <!-- 3. MAIN LOBBY ROOM -->
+    <!-- 3. MAIN MENU (CREATE OR JOIN) -->
+    <div id="screen-menu" class="full-screen bg-grass">
+        <div class="setup-box">
+            <h2>MULTIPLAYER</h2>
+            <button class="main-btn btn-orange" id="btn-menu-create">Host New Game</button>
+            <button class="main-btn btn-blue" id="btn-menu-join">Join With Password</button>
+        </div>
+    </div>
+
+    <!-- 4. JOIN ROOM SCREEN -->
+    <div id="screen-join" class="full-screen bg-grass">
+        <div class="setup-box">
+            <h2>JOIN ROOM</h2>
+            <input type="text" id="input-room-id" placeholder="ROOM ID (e.g. A1B2C3)" maxlength="6" style="text-transform: uppercase;">
+            <input type="text" id="input-room-pass" placeholder="PASSWORD (4 Digits)" maxlength="4" pattern="\d*">
+            <button class="main-btn btn-green" id="btn-submit-join">Join Game</button>
+            <button class="main-btn btn-gray" onclick="showScreen('screen-menu')">Go Back</button>
+        </div>
+    </div>
+
+    <!-- 5. MAIN LOBBY ROOM -->
     <div id="screen-lobby" class="full-screen bg-grass">
         <div class="setup-box">
             <h2>LOBBY ROOM</h2>
             
-            <div id="lobby-link-area">
-                <p style="font-size: 14px;">Invite a friend (Click to copy):</p>
-                <div class="link-box" id="share-link">...</div>
+            <div id="lobby-info-area" style="background: rgba(255,255,255,0.8); padding: 15px; border-radius: 12px; border: 2px dashed #333;">
+                <p style="font-size: 14px; margin-bottom: 5px;">Give these to your friend:</p>
+                <div style="font-size: 24px; font-weight: 900; color: #d35400;">ID: <span id="display-room-id">---</span></div>
+                <div style="font-size: 24px; font-weight: 900; color: #2980b9;">PASS: <span id="display-room-pass">---</span></div>
+                <button class="main-btn btn-gray" id="btn-copy-room" style="font-size: 14px; padding: 10px; margin-top: 10px; width: 100%;">Copy Details</button>
             </div>
 
             <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">
@@ -117,24 +136,26 @@
                 <button class="main-btn btn-orange" id="btn-swap-roles" style="flex: 1; display: none; font-size: 16px; padding: 15px 5px;">Swap Roles</button>
                 <button class="main-btn btn-gray" id="btn-ready" style="flex: 2;">READY UP</button>
             </div>
+            
+            <button class="main-btn btn-red" id="btn-leave-room" style="font-size: 14px; padding: 10px; margin-top: 5px;">Leave Room</button>
             <p id="lobby-status-text" style="color: #e74c3c; font-weight: bold; margin-top: 5px;">Connecting to Server...</p>
         </div>
     </div>
 
-    <!-- 4. COUNTDOWN OVERLAY -->
+    <!-- 6. COUNTDOWN OVERLAY -->
     <div id="screen-countdown" class="full-screen bg-dark">
         <h2 style="color: #fff; font-size: 30px;">GAME STARTING IN</h2>
         <div id="big-countdown">10</div>
         <p style="margin-top: 20px; color: #bdc3c7;">Get ready...</p>
     </div>
 
-    <!-- 5. BLINDNESS/BLOCKER OVERLAY -->
+    <!-- 7. BLINDNESS/BLOCKER OVERLAY -->
     <div id="screen-blocker" class="full-screen bg-dark">
         <h2 style="color: #f1c40f; font-size: 40px;" id="blocker-title">WAITING...</h2>
         <p style="font-size: 20px; margin-top: 15px;" id="blocker-desc">The other player is preparing.</p>
     </div>
 
-    <!-- 6. GAME LAYER -->
+    <!-- 8. GAME LAYER -->
     <canvas id="gameCanvas"></canvas>
     <div id="ui-layer" class="full-screen">
         <button id="btn-toggle-item">🟡 Place: GOLD (5)</button>
@@ -192,14 +213,15 @@
     // 2. GLOBALS & SCREEN MANAGER
     // ==========================================
     function showScreen(screenId) {
-        const screens = ['screen-loading', 'screen-name', 'screen-lobby', 'screen-countdown', 'screen-blocker', 'ui-layer'];
+        const screens = ['screen-loading', 'screen-name', 'screen-menu', 'screen-join', 'screen-lobby', 'screen-countdown', 'screen-blocker', 'ui-layer'];
         screens.forEach(id => { document.getElementById(id).style.display = (id === screenId) ? 'flex' : 'none'; });
         if(screenId === 'ui-layer') document.getElementById('ui-layer').style.display = 'block'; 
     }
 
-    let roomId = new URLSearchParams(window.location.search).get('room');
     let myId = Math.random().toString(36).substr(2, 9);
     let myName = "Player";
+    let roomId = null;
+    let roomPassword = null;
     let remoteId = null; 
     let isHost = false;
     let myRole = null; 
@@ -249,7 +271,6 @@
         }
     }
 
-    // Production ready: Bypass infinite loading if assets are missing
     setTimeout(() => { if (assetsLoaded < totalAssets) { assetsLoaded = totalAssets; assetCheck(); console.warn("Missing Image Assets! Using Fallback Renderer."); } }, 2000);
 
     const audioPool = []; const shootAudio = new Audio('shoot.mp3'); 
@@ -395,7 +416,6 @@
                 ctx.drawImage(img, this.frameX * spriteW, this.frameY * spriteH, spriteW, spriteH, -this.width / 2, -this.height / 2, this.width, this.height);
                 ctx.restore();
             } else {
-                // Fallback geometry if images failed loading
                 ctx.save(); ctx.translate(this.x, this.y);
                 if (!this.facingRight) ctx.scale(-1, 1);
                 if (this.isMoving && !this.isAiming) ctx.translate(0, Math.sin(this.gameFrame * 0.5) * 2);
@@ -444,41 +464,74 @@
     // ==========================================
     // 6. LOBBY & NETWORKING FLOW
     // ==========================================
+    
+    // UI Event Listeners for Nav
     document.getElementById('btn-submit-name').onclick = () => {
         let inputVal = document.getElementById('input-name').value.trim();
         if(inputVal.length < 1) inputVal = "Player" + Math.floor(Math.random()*99);
         myName = inputVal;
-        showScreen('screen-lobby');
-        if (roomId) joinRoom(); else createRoom();
+        showScreen('screen-menu');
     };
+
+    document.getElementById('btn-menu-create').onclick = createRoom;
+    document.getElementById('btn-menu-join').onclick = () => showScreen('screen-join');
+    document.getElementById('btn-submit-join').onclick = joinRoom;
+    document.getElementById('btn-leave-room').onclick = () => window.location.reload();
 
     function createRoom() {
         isHost = true; myRole = 'Fox';
         roomId = Math.random().toString(36).substr(2, 6).toUpperCase();
-        roomRef = db.ref('rooms/' + roomId);
+        roomPassword = Math.floor(1000 + Math.random() * 9000).toString(); 
         
-        roomRef.set({ gameState: 'lobby', mapSeed: Math.floor(Math.random() * 99999), stats: { goldFound: 0 } });
+        roomRef = db.ref('rooms/' + roomId);
+        roomRef.set({ 
+            password: roomPassword,
+            gameState: 'lobby', 
+            mapSeed: Math.floor(Math.random() * 99999), 
+            stats: { goldFound: 0 } 
+        });
+        
         setupPlayerDB();
         
+        document.getElementById('display-room-id').innerText = roomId;
+        document.getElementById('display-room-pass').innerText = roomPassword;
         document.getElementById('btn-swap-roles').style.display = 'block';
-        let url = window.location.href.split('?')[0] + '?room=' + roomId;
-        document.getElementById('share-link').innerText = url;
+        document.getElementById('btn-copy-room').style.display = 'block';
+        
+        showScreen('screen-lobby');
         setupRoomListeners();
     }
 
     function joinRoom() {
-        roomRef = db.ref('rooms/' + roomId);
-        roomRef.child('players').once('value', snap => {
+        let inputId = document.getElementById('input-room-id').value.trim().toUpperCase();
+        let inputPass = document.getElementById('input-room-pass').value.trim();
+        
+        if(!inputId || !inputPass) { alert("Please enter both Room ID and Password!"); return; }
+        
+        let tempRef = db.ref('rooms/' + inputId);
+        tempRef.once('value', snap => {
             let data = snap.val();
-            if(data && Object.keys(data).length >= 2) {
-                alert("Room is full!");
-                window.location.href = window.location.href.split('?')[0];
-                return;
-            }
-            isHost = false; myRole = 'Panda';
+            if(!data) { alert("Room not found! Check the ID."); return; }
+            if(data.password !== inputPass) { alert("Incorrect Password!"); return; }
+            if(data.players && Object.keys(data.players).length >= 2) { alert("Room is already full!"); return; }
+            
+            // Successfully connected to room!
+            roomId = inputId;
+            roomPassword = inputPass;
+            roomRef = tempRef;
+            isHost = false; 
+            myRole = 'Panda';
+            
+            document.getElementById('display-room-id').innerText = roomId;
+            document.getElementById('display-room-pass').innerText = "****"; // Hide password for joiner
+            document.getElementById('btn-swap-roles').style.display = 'none'; // Lock swap for joiner
+            document.getElementById('btn-copy-room').style.display = 'none'; // Lock copy for joiner
+            
             setupPlayerDB();
-            document.getElementById('lobby-link-area').style.display = 'none';
+            showScreen('screen-lobby');
             setupRoomListeners();
+        }).catch(e => {
+            console.error(e); alert("Network error. Please check your connection.");
         });
     }
 
@@ -491,15 +544,14 @@
                 roomRef.child('gameState').onDisconnect().set('finished'); 
                 roomRef.child('winner').onDisconnect().set('Host Disconnected');
             }
-        } catch(e) {
-            console.error(e); alert("Network Error: Could not reach multiplayer servers.");
-        }
+        } catch(e) { console.error(e); alert("Network Error: Could not reach multiplayer servers."); }
     }
 
-    document.getElementById('share-link').onclick = function() {
-        navigator.clipboard.writeText(this.innerText);
+    document.getElementById('btn-copy-room').onclick = function() {
+        let text = `Let's play Hide & Hunt!\nRoom ID: ${roomId}\nPassword: ${roomPassword}`;
+        navigator.clipboard.writeText(text);
         let oldText = this.innerText; this.innerText = "COPIED!"; this.style.background = "#2ecc71"; this.style.color = "white";
-        setTimeout(() => { this.innerText = oldText; this.style.background = "#fff"; this.style.color = "#130f40"; }, 1500);
+        setTimeout(() => { this.innerText = oldText; this.style.background = "#95a5a6"; this.style.color = "white"; }, 1500);
     };
 
     document.getElementById('btn-ready').onclick = () => {
@@ -525,7 +577,6 @@
         roomRef.child('players').on('value', snap => {
             let data = snap.val(); if(!data) return;
             let keys = Object.keys(data);
-            
             let allReady = true; let playerCount = 0;
 
             for(let id of keys) {
@@ -549,9 +600,7 @@
                     myRole = p.role; localPlayer.role = myRole;
                     amIReady = p.ready || false;
                     
-                    if(p.hp !== undefined && p.hp !== localPlayer.hp) {
-                        localPlayer.hp = p.hp; 
-                    }
+                    if(p.hp !== undefined && p.hp !== localPlayer.hp) { localPlayer.hp = p.hp; }
                     if(p.teleportX !== undefined) {
                         localPlayer.x = p.teleportX; localPlayer.y = p.teleportY;
                         roomRef.child('players/' + myId).child('teleportX').remove();
@@ -638,9 +687,9 @@
                 roomRef.child('winner').once('value', wSnap => {
                     let winner = wSnap.val() || "UNKNOWN";
                     document.getElementById('blocker-title').innerText = `${winner.toUpperCase()} WINS!`;
-                    document.getElementById('blocker-desc').innerText = "Returning to lobby shortly...";
+                    document.getElementById('blocker-desc').innerText = "Returning to menu shortly...";
                 });
-                setTimeout(() => window.location.href = window.location.href.split('?')[0], 5000);
+                setTimeout(() => window.location.reload(), 5000);
             }
         });
 
@@ -707,7 +756,6 @@
 
         if(isHost && leftSecs <= 0) {
             if(gameState === 'hiding') {
-                // Ensure remaining items are correctly placed regardless of Host's role
                 let gPlaced = 0, bPlaced = 0;
                 for(let k in mapItems) { if(mapItems[k] === 'gold') gPlaced++; else if(mapItems[k] === 'bomb') bPlaced++; }
                 for(let i=0; i < (5 - gPlaced); i++) autoPlace('gold');
@@ -933,4 +981,4 @@
     }
 </script>
 </body>
-    </html>
+</html>
