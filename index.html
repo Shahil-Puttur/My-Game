@@ -5,16 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Hide & Hunt - Multiplayer</title>
     
-    <!-- Firebase SDKs: App, Database, AND Auth -->
+    <!-- Firebase SDKs: App and Database -->
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
 
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@800;900&display=swap');
         
         * { margin: 0; padding: 0; box-sizing: border-box; touch-action: none; user-select: none; -webkit-tap-highlight-color: transparent; }
-        body { background-color: #6ab04c; overflow: hidden; font-family: 'Nunito', sans-serif; color: #130f40; }
+        html, body { background-color: #6ab04c; overflow: hidden; font-family: 'Nunito', sans-serif; color: #130f40; width: 100%; height: 100%; }
         canvas { display: block; image-rendering: pixelated; } 
         
         /* OVERLAYS & UI LAYER */
@@ -22,11 +21,11 @@
         #ui-layer { background: transparent; z-index: 10; pointer-events: none; }
         
         /* IN-GAME HUD */
-        #hud-top { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); background: rgba(0, 0, 0, 0.7); padding: 10px 20px; border-radius: 20px; border: 3px solid #f1c40f; color: white; font-size: 18px; text-transform: uppercase; font-weight: bold; display: flex; flex-direction: column; gap: 5px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); pointer-events: none; }
+        #hud-top { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); background: rgba(0, 0, 0, 0.7); padding: 10px 20px; border-radius: 20px; border: 3px solid #f1c40f; color: white; font-size: 18px; text-transform: uppercase; font-weight: bold; display: flex; flex-direction: column; gap: 5px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); pointer-events: none; text-align: center; }
         #hud-right { position: absolute; top: 15px; right: 15px; background: rgba(0, 0, 0, 0.6); padding: 10px 15px; border-radius: 12px; border: 3px solid #f39c12; color: white; font-size: 16px; font-weight: bold; text-transform: uppercase; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); pointer-events: none; min-width: 140px;}
         .hud-player { display: flex; justify-content: space-between; align-items: center; gap: 15px; }
         
-        #btn-toggle-item { position: absolute; top: 15px; left: 15px; background: #9b59b6; border: 3px solid #8e44ad; color: white; padding: 10px 20px; border-radius: 20px; font-size: 16px; font-weight: 900; pointer-events: auto; cursor: pointer; box-shadow: 0 5px 0 #732d91; display: none; gap: 5px; text-transform: uppercase;}
+        #btn-toggle-item { position: absolute; top: 15px; left: 15px; background: #f1c40f; border: 3px solid #e67e22; color: #130f40; padding: 10px 20px; border-radius: 20px; font-size: 16px; font-weight: 900; pointer-events: auto; cursor: pointer; box-shadow: 0 5px 0 #d35400; display: none; gap: 5px; text-transform: uppercase;}
         #btn-toggle-item:active { transform: translateY(5px); box-shadow: none; }
 
         #joystick-zone { position: absolute; bottom: 50px; left: 30px; width: 130px; height: 130px; background: rgba(0, 0, 0, 0.15); border-radius: 50%; pointer-events: auto; border: 3px solid rgba(255,255,255,0.2); backdrop-filter: blur(4px); }
@@ -35,12 +34,12 @@
         #right-controls { position: absolute; bottom: 60px; right: 25px; display: flex; flex-direction: column; gap: 15px; pointer-events: auto; align-items: flex-end;}
         .action-btn { width: 65px; height: 65px; border-radius: 50%; border: 3px solid rgba(0,0,0,0.2); color: white; font-size: 26px; cursor: pointer; display: flex; justify-content: center; align-items: center; box-shadow: inset 0 -4px 0 rgba(0,0,0,0.2), 0 5px 10px rgba(0,0,0,0.3); display: none; }
         .action-btn:active { transform: scale(0.9) translateY(4px); box-shadow: inset 0 -2px 0 rgba(0,0,0,0.2), 0 2px 5px rgba(0,0,0,0.3); }
-        #btn-search { background-color: #2ecc71; }
+        #btn-search { background-color: #3498db; }
         #btn-shoot { background-color: #e74c3c; width: 75px; height: 75px; font-size: 30px; } 
         .aiming-mode { background-color: #c0392b !important; border-color: #f1c40f !important; box-shadow: 0 0 15px #e74c3c, inset 0 -4px 0 rgba(0,0,0,0.2) !important; transform: scale(1.1); }
 
-        #alert-text { position: absolute; top: 35%; left: 50%; transform: translate(-50%, -50%); color: #f1c40f; font-size: 40px; -webkit-text-stroke: 1.5px #000; text-shadow: 0px 5px 0 #000; opacity: 0; pointer-events: none; z-index: 50; width: 100%; font-weight: 900; transition: opacity 0.2s;}
-        .show-alert { opacity: 1 !important; }
+        #alert-text { position: absolute; top: 35%; left: 50%; transform: translate(-50%, -50%) scale(1); color: #f1c40f; font-size: 40px; -webkit-text-stroke: 1.5px #000; text-shadow: 0px 5px 0 #000; opacity: 0; pointer-events: none; z-index: 50; width: 100%; font-weight: 900; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);}
+        .show-alert { opacity: 1 !important; transform: translate(-50%, -60%) scale(1.2) !important; }
 
         /* MENUS & BOXES */
         .bg-grass { background: #6ab04c; color: white; }
@@ -53,7 +52,7 @@
         
         .btn-blue { background: #3498db; } .btn-green { background: #2ecc71; } .btn-orange { background: #e67e22; } .btn-gray { background: #95a5a6; }
         
-        /* LOBBY PLAYER LIST (FIXED OVERLAPPING) */
+        /* LOBBY PLAYER LIST */
         .player-row { display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.5); padding: 10px 15px; border-radius: 10px; border: 2px solid rgba(0,0,0,0.1); font-size: 16px; font-weight: 900; gap: 10px;}
         .player-name-box { flex: 1; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .player-status-box { flex-shrink: 0; display: flex; align-items: center; gap: 5px;}
@@ -75,7 +74,7 @@
         <div style="width: 70%; max-width: 400px; height: 15px; background: rgba(0,0,0,0.3); border-radius: 10px; margin-top: 30px; border: 3px solid #333;">
             <div id="loading-bar" style="width: 0%; height: 100%; background: #f1c40f; border-radius: 6px; transition: width 0.2s;"></div>
         </div>
-        <p id="loading-text" style="margin-top:10px; font-weight: bold;">Authenticating Database...</p>
+        <p id="loading-text" style="margin-top:10px; font-weight: bold;">Loading Assets...</p>
     </div>
 
     <!-- 2. NAME INPUT SCREEN -->
@@ -118,7 +117,7 @@
                 <button class="main-btn btn-orange" id="btn-swap-roles" style="flex: 1; display: none; font-size: 16px; padding: 15px 5px;">Swap Roles</button>
                 <button class="main-btn btn-gray" id="btn-ready" style="flex: 2;">READY UP</button>
             </div>
-            <p id="lobby-status-text" style="color: #d35400; font-weight: bold; margin-top: 5px;">Waiting for players...</p>
+            <p id="lobby-status-text" style="color: #e74c3c; font-weight: bold; margin-top: 5px;">Connecting to Server...</p>
         </div>
     </div>
 
@@ -142,6 +141,7 @@
         <div id="hud-top">
             <div id="top-timer">00:00</div>
             <div id="top-status" style="font-size: 14px; color: #f1c40f;">Playing</div>
+            <div id="top-gold" style="font-size: 16px; color: #f1c40f; display: none;">GOLD: 0/5</div>
         </div>
         <div id="hud-right">
             <div class="hud-player" id="hud-p1">...</div>
@@ -157,7 +157,7 @@
 
 <script>
     // ==========================================
-    // 1. FIREBASE CONFIGURATION & AUTH (FIXED)
+    // 1. FIREBASE CONFIGURATION 
     // ==========================================
     const firebaseConfig = {
         projectId: "gen-lang-client-0721750473",
@@ -170,7 +170,6 @@
         measurementId: ""
     };
 
-    // CRITICAL FIX: Add databaseURL if it is missing
     if (!firebaseConfig.databaseURL) {
         firebaseConfig.databaseURL = "https://" + firebaseConfig.projectId + "-default-rtdb.firebaseio.com";
     }
@@ -178,14 +177,23 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
+    // Server time syncing for 100% accurate countdowns
+    let serverTimeOffset = 0;
+    db.ref('.info/serverTimeOffset').on('value', snap => { serverTimeOffset = snap.val() || 0; });
+    function getSyncTime() { return Date.now() + serverTimeOffset; }
+
+    db.ref('.info/connected').on('value', snap => {
+        const statText = document.getElementById('lobby-status-text');
+        if (snap.val() === true) { statText.innerText = "Connected! Waiting for players..."; statText.style.color = "#2ecc71"; } 
+        else { statText.innerText = "Connecting to Server..."; statText.style.color = "#e74c3c"; }
+    });
+
     // ==========================================
     // 2. GLOBALS & SCREEN MANAGER
     // ==========================================
     function showScreen(screenId) {
         const screens = ['screen-loading', 'screen-name', 'screen-lobby', 'screen-countdown', 'screen-blocker', 'ui-layer'];
-        screens.forEach(id => {
-            document.getElementById(id).style.display = (id === screenId) ? 'flex' : 'none';
-        });
+        screens.forEach(id => { document.getElementById(id).style.display = (id === screenId) ? 'flex' : 'none'; });
         if(screenId === 'ui-layer') document.getElementById('ui-layer').style.display = 'block'; 
     }
 
@@ -207,9 +215,12 @@
     let safeObjIndex = -1;
     let mapSeed = 1;
 
+    // Deterministic Mulberry32 PRNG
     function randomSeed() {
-        let x = Math.sin(mapSeed++) * 10000;
-        return x - Math.floor(x);
+        mapSeed |= 0; mapSeed = mapSeed + 0x6D2B79F5 | 0;
+        let t = Math.imul(mapSeed ^ mapSeed >>> 15, 1 | mapSeed);
+        t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+        return ((t ^ t >>> 14) >>> 0) / 4294967296;
     }
 
     // ==========================================
@@ -217,7 +228,6 @@
     // ==========================================
     const canvas = document.getElementById('gameCanvas'); 
     const ctx = canvas.getContext('2d', { alpha: false }); 
-    
     function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
     window.addEventListener('resize', resize); resize();
 
@@ -239,27 +249,21 @@
         }
     }
 
-    // AUTHENTICATE FIRST, THEN LOAD ASSETS
-    firebase.auth().signInAnonymously().then(() => {
-        document.getElementById('loading-text').innerText = "Loading Map Assets...";
-        // Load Audio
-        const audioPool = []; const shootAudio = new Audio('shoot.mp3'); 
-        shootAudio.oncanplaythrough = assetCheck; shootAudio.onerror = assetCheck; 
-        for(let i=0; i<5; i++) audioPool.push(shootAudio.cloneNode());
-        window.playShootSound = function() { try { window.audioIndex = window.audioIndex || 0; audioPool[window.audioIndex].volume = 0.5; audioPool[window.audioIndex].currentTime = 0; audioPool[window.audioIndex].play().catch(()=>{}); window.audioIndex = (window.audioIndex + 1) % audioPool.length; } catch(e) {} };
+    // Production ready: Bypass infinite loading if assets are missing
+    setTimeout(() => { if (assetsLoaded < totalAssets) { assetsLoaded = totalAssets; assetCheck(); console.warn("Missing Image Assets! Using Fallback Renderer."); } }, 2000);
 
-        // Load Images
-        for (let key in assetList) {
-            let img = new Image(); 
-            let isLoaded = false;
-            const markLoaded = () => { if(!isLoaded) { isLoaded = true; assetCheck(); } };
-            img.onload = markLoaded; img.onerror = markLoaded; img.src = assetList[key];
-            if(img.complete) markLoaded(); images[key] = img;
-        }
-    }).catch((error) => {
-        document.getElementById('loading-text').innerText = "Database connection failed! Error: " + error.message;
-        document.getElementById('loading-text').style.color = "#e74c3c";
-    });
+    const audioPool = []; const shootAudio = new Audio('shoot.mp3'); 
+    shootAudio.oncanplaythrough = assetCheck; shootAudio.onerror = assetCheck; 
+    for(let i=0; i<5; i++) audioPool.push(shootAudio.cloneNode());
+    window.playShootSound = function() { try { window.audioIndex = window.audioIndex || 0; audioPool[window.audioIndex].volume = 0.5; audioPool[window.audioIndex].currentTime = 0; audioPool[window.audioIndex].play().catch(()=>{}); window.audioIndex = (window.audioIndex + 1) % audioPool.length; } catch(e) {} };
+
+    for (let key in assetList) {
+        let img = new Image(); 
+        let isLoaded = false;
+        const markLoaded = () => { if(!isLoaded) { isLoaded = true; assetCheck(); } };
+        img.onload = markLoaded; img.onerror = markLoaded; img.src = assetList[key];
+        if(img.complete) markLoaded(); images[key] = img;
+    }
 
     const TILE_SIZE = 80; 
     const gridCanvas = document.createElement('canvas'); gridCanvas.width = TILE_SIZE * 2; gridCanvas.height = TILE_SIZE * 2;
@@ -383,13 +387,23 @@
             ctx.fillStyle = "rgba(0,0,0,0.2)"; ctx.beginPath(); ctx.ellipse(this.x, this.y + 40, 25, 10, 0, 0, Math.PI * 2); ctx.fill();
             let spriteName = this.role === 'Fox' ? 'fox' : 'panda';
             let img = images[spriteName];
-            if (img && img.complete) {
+            if (img && img.complete && img.naturalWidth > 0) {
                 let spriteW = img.width / 4; let spriteH = img.height / 3;
                 ctx.save(); ctx.translate(this.x, this.y);
                 if (!this.facingRight && this.frameY === 2) ctx.scale(-1, 1); 
                 if (this.isMoving && !this.isAiming) ctx.translate(0, Math.sin(this.gameFrame*0.5)*2);
                 ctx.drawImage(img, this.frameX * spriteW, this.frameY * spriteH, spriteW, spriteH, -this.width / 2, -this.height / 2, this.width, this.height);
                 ctx.restore();
+            } else {
+                // Fallback geometry if images failed loading
+                ctx.save(); ctx.translate(this.x, this.y);
+                if (!this.facingRight) ctx.scale(-1, 1);
+                if (this.isMoving && !this.isAiming) ctx.translate(0, Math.sin(this.gameFrame * 0.5) * 2);
+                ctx.fillStyle = this.role === 'Fox' ? '#e67e22' : '#ecf0f1';
+                ctx.beginPath(); ctx.arc(0, -10, this.width * 0.3, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#2c3e50'; ctx.beginPath(); ctx.arc(10, -15, 4, 0, Math.PI * 2); ctx.fill(); ctx.beginPath(); ctx.arc(20, -15, 4, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#fff'; ctx.font = 'bold 16px Arial'; ctx.textAlign = 'center'; ctx.scale(this.facingRight ? 1 : -1, 1);
+                ctx.fillText(this.role, 0, -50); ctx.restore();
             }
         }
     }
@@ -417,11 +431,11 @@
                 if ((c < 5 && r < 5) || (c > MAP_SIZE - 6 && r > MAP_SIZE - 6)) continue; 
                 let rand = randomSeed();
                 if (rand > 0.96) worldObjects.push({ type: destructibles[Math.floor(randomSeed()*destructibles.length)], x: x, y: y, size: TILE_SIZE-10, isSolid: true });
-                else if (rand > 0.90) worldObjects.push({ type: hidingSpots[Math.floor(randomSeed()*hidingSpots.length)], x: x, y: y, size: TILE_SIZE, isSolid: false }); 
+                else if (rand > 0.90) worldObjects.push({ type: hidingSpots[Math.floor(randomSeed()*hidingSpots.length)], x: x, y: y, size: TILE_SIZE, isSolid: false, isHidingSpot: true }); 
                 else if (rand > 0.85) worldObjects.push({ type: solidCover[Math.floor(randomSeed()*solidCover.length)], x: x, y: y, size: TILE_SIZE, isSolid: true });
             }
         }
-        for (let i = 0; i < worldObjects.length; i++) { if (!solidCover.includes(worldObjects[i].type)) candidateContainers.push(i); }
+        for (let i = 0; i < worldObjects.length; i++) { if (!solidCover.includes(worldObjects[i].type) && !worldObjects[i].isHidingSpot) candidateContainers.push(i); }
         safeObjIndex = candidateContainers[Math.floor(randomSeed() * candidateContainers.length)];
         worldObjects[safeObjIndex].type = 'safe'; worldObjects[safeObjIndex].isSolid = true;
         do { passwordObjIndex = candidateContainers[Math.floor(randomSeed() * candidateContainers.length)]; } while (passwordObjIndex === safeObjIndex);
@@ -434,7 +448,6 @@
         let inputVal = document.getElementById('input-name').value.trim();
         if(inputVal.length < 1) inputVal = "Player" + Math.floor(Math.random()*99);
         myName = inputVal;
-        
         showScreen('screen-lobby');
         if (roomId) joinRoom(); else createRoom();
     };
@@ -454,19 +467,33 @@
     }
 
     function joinRoom() {
-        isHost = false; myRole = 'Panda';
         roomRef = db.ref('rooms/' + roomId);
-        setupPlayerDB();
-        
-        document.getElementById('lobby-link-area').style.display = 'none';
-        setupRoomListeners();
+        roomRef.child('players').once('value', snap => {
+            let data = snap.val();
+            if(data && Object.keys(data).length >= 2) {
+                alert("Room is full!");
+                window.location.href = window.location.href.split('?')[0];
+                return;
+            }
+            isHost = false; myRole = 'Panda';
+            setupPlayerDB();
+            document.getElementById('lobby-link-area').style.display = 'none';
+            setupRoomListeners();
+        });
     }
 
     function setupPlayerDB() {
-        let pRef = roomRef.child('players/' + myId);
-        pRef.set({ name: myName, role: myRole, ready: false, hp: 100, connected: true });
-        pRef.onDisconnect().remove();
-        if(isHost) roomRef.child('gameState').onDisconnect().set('finished'); 
+        try {
+            let pRef = roomRef.child('players/' + myId);
+            pRef.set({ name: myName, role: myRole, ready: false, hp: 100, connected: true });
+            pRef.onDisconnect().remove();
+            if(isHost) {
+                roomRef.child('gameState').onDisconnect().set('finished'); 
+                roomRef.child('winner').onDisconnect().set('Host Disconnected');
+            }
+        } catch(e) {
+            console.error(e); alert("Network Error: Could not reach multiplayer servers.");
+        }
     }
 
     document.getElementById('share-link').onclick = function() {
@@ -507,7 +534,6 @@
                     remoteId = id;
                     remotePlayer.targetX = p.x !== undefined ? p.x : remotePlayer.targetX;
                     remotePlayer.targetY = p.y !== undefined ? p.y : remotePlayer.targetY;
-                    remotePlayer.hp = p.hp !== undefined ? p.hp : remotePlayer.hp;
                     remotePlayer.isAiming = p.isAiming || false;
                     remotePlayer.role = p.role || "";
                     if(p.aimDir) remotePlayer.aimDir = p.aimDir;
@@ -522,9 +548,9 @@
                 } else {
                     myRole = p.role; localPlayer.role = myRole;
                     amIReady = p.ready || false;
+                    
                     if(p.hp !== undefined && p.hp !== localPlayer.hp) {
                         localPlayer.hp = p.hp; 
-                        if(localPlayer.hp <= 0 && gameState === 'playing') checkWinCondition();
                     }
                     if(p.teleportX !== undefined) {
                         localPlayer.x = p.teleportX; localPlayer.y = p.teleportY;
@@ -551,11 +577,20 @@
                 document.getElementById('role-p2').innerText = "--";
                 document.getElementById('ready-p2').className = 'status-badge'; document.getElementById('ready-p2').innerText = "NOT READY";
                 allReady = false;
+                
+                if (isHost && (gameState === 'playing' || gameState === 'hiding' || gameState === 'countdown')) {
+                    roomRef.update({ gameState: 'finished', winner: 'Opponent Disconnected' });
+                }
+            }
+
+            if (isHost && gameState === 'playing') {
+                if (myRole === 'Panda' && localPlayer.hp <= 0) roomRef.update({ gameState: 'finished', winner: 'Fox' });
+                else if (myRole === 'Fox' && remotePlayer.hp <= 0) roomRef.update({ gameState: 'finished', winner: 'Fox' });
             }
 
             if(isHost) {
                 if (gameState === 'lobby' && playerCount === 2 && allReady) {
-                    roomRef.update({ gameState: 'countdown', timer: Date.now() + 10500 });
+                    roomRef.update({ gameState: 'countdown', timer: getSyncTime() + 10500 });
                 } else if (gameState === 'countdown' && !allReady) {
                     roomRef.update({ gameState: 'lobby' }); 
                 }
@@ -567,13 +602,15 @@
             gameState = s.val();
 
             if(gameState === 'lobby') { showScreen('screen-lobby'); }
-            else if(gameState === 'countdown') { showScreen('screen-countdown'); resetPositions(); }
+            else if(gameState === 'countdown') { showScreen('screen-countdown'); resetPositions(); foxInventory = { gold: 5, bombs: 2 }; }
             else if(gameState === 'hiding') {
                 showScreen('ui-layer');
                 document.getElementById('btn-search').style.display = 'none';
                 if(myRole === 'Fox') {
                     document.getElementById('btn-toggle-item').style.display = 'flex';
                     document.getElementById('btn-shoot').style.display = 'flex';
+                    document.getElementById('btn-toggle-item').innerHTML = "🟡 Place: GOLD (5)";
+                    placingItem = 'gold'; document.getElementById('btn-toggle-item').style.background = "#f1c40f";
                     showAlert("HIDE YOUR ITEMS!", "#f1c40f");
                 } else {
                     showScreen('screen-blocker');
@@ -587,17 +624,22 @@
                 if(myRole === 'Fox') {
                     document.getElementById('btn-shoot').style.display = 'flex';
                     document.getElementById('btn-search').style.display = 'none';
+                    document.getElementById('top-gold').style.display = 'none';
                     showAlert("HUNT THE PANDA!", "#e74c3c");
                 } else {
                     document.getElementById('btn-shoot').style.display = 'none';
                     document.getElementById('btn-search').style.display = 'flex';
+                    document.getElementById('top-gold').style.display = 'block';
                     showAlert("FIND ALL 5 GOLD!", "#f1c40f");
                 }
             }
             else if(gameState === 'finished') {
                 showScreen('screen-blocker');
-                document.getElementById('blocker-title').innerText = "GAME OVER";
-                document.getElementById('blocker-desc').innerText = "Returning to lobby shortly...";
+                roomRef.child('winner').once('value', wSnap => {
+                    let winner = wSnap.val() || "UNKNOWN";
+                    document.getElementById('blocker-title').innerText = `${winner.toUpperCase()} WINS!`;
+                    document.getElementById('blocker-desc').innerText = "Returning to lobby shortly...";
+                });
                 setTimeout(() => window.location.href = window.location.href.split('?')[0], 5000);
             }
         });
@@ -606,7 +648,12 @@
         roomRef.child('timer').on('value', s => { window.serverEndTime = s.val(); });
         roomRef.child('stats').on('value', s => { 
             let stats = s.val(); 
-            if(stats && stats.goldFound !== undefined && gameState === 'playing' && isHost && stats.goldFound >= 5) checkWinCondition();
+            if(stats && stats.goldFound !== undefined) {
+                document.getElementById('top-gold').innerText = `GOLD: ${stats.goldFound}/5`;
+                if (gameState === 'playing' && isHost && stats.goldFound >= 5) {
+                    roomRef.update({ gameState: 'finished', winner: 'Panda' });
+                }
+            }
         });
         roomRef.child('events').on('child_added', s => {
             let ev = s.val();
@@ -622,11 +669,6 @@
     function syncLocalPlayer() {
         if(!myRole || gameState === 'menu' || gameState === 'lobby' || gameState === 'countdown' || gameState === 'finished') return;
         roomRef.child('players/' + myId).update({ x: localPlayer.x, y: localPlayer.y, isAiming: localPlayer.isAiming, aimDir: localPlayer.aimDir });
-    }
-
-    function checkWinCondition() {
-        if(!isHost || gameState !== 'playing') return;
-        roomRef.update({ gameState: 'finished' });
     }
 
     // ==========================================
@@ -651,12 +693,12 @@
 
     function updateTimerDisplay() {
         if(!window.serverEndTime || gameState === 'menu' || gameState === 'finished' || gameState === 'lobby') return;
-        let leftMs = window.serverEndTime - Date.now();
+        let leftMs = window.serverEndTime - getSyncTime();
         let leftSecs = Math.max(0, Math.floor(leftMs / 1000));
         
         if (gameState === 'countdown') {
             document.getElementById('big-countdown').innerText = leftSecs;
-            if(isHost && leftSecs <= 0) { roomRef.update({ gameState: 'hiding', timer: Date.now() + 60000 }); }
+            if(isHost && leftSecs <= 0) { roomRef.update({ gameState: 'hiding', timer: getSyncTime() + 60000 }); }
             return;
         }
 
@@ -665,17 +707,23 @@
 
         if(isHost && leftSecs <= 0) {
             if(gameState === 'hiding') {
-                for(let i=0; i<foxInventory.gold; i++) autoPlace('gold');
-                for(let i=0; i<foxInventory.bombs; i++) autoPlace('bomb');
-                roomRef.update({ gameState: 'playing', timer: Date.now() + 5 * 60000 });
-            } else if (gameState === 'playing') { checkWinCondition(); }
+                // Ensure remaining items are correctly placed regardless of Host's role
+                let gPlaced = 0, bPlaced = 0;
+                for(let k in mapItems) { if(mapItems[k] === 'gold') gPlaced++; else if(mapItems[k] === 'bomb') bPlaced++; }
+                for(let i=0; i < (5 - gPlaced); i++) autoPlace('gold');
+                for(let i=0; i < (2 - bPlaced); i++) autoPlace('bomb');
+                roomRef.update({ gameState: 'playing', timer: getSyncTime() + 5 * 60000 });
+            } else if (gameState === 'playing') { 
+                roomRef.update({ gameState: 'finished', winner: 'Fox (Time Up)' }); 
+            }
         }
     }
 
     function autoPlace(type) {
         for(let i=0; i<worldObjects.length; i++) {
-            if(!solidCover.includes(worldObjects[i].type) && !mapItems[i] && i !== safeObjIndex && i !== passwordObjIndex) {
-                mapItems[i] = type; roomRef.child(`items/${i}`).set(type); break;
+            let obj = worldObjects[i];
+            if(!solidCover.includes(obj.type) && !obj.isHidingSpot && !mapItems[i] && i !== safeObjIndex && i !== passwordObjIndex) {
+                mapItems[i] = type; roomRef.child(`items/${i}`).set(type); return;
             }
         }
     }
@@ -683,14 +731,17 @@
     document.getElementById('btn-toggle-item').addEventListener('pointerdown', (e) => {
         e.preventDefault(); placingItem = placingItem === 'gold' ? 'bomb' : 'gold';
         let btn = document.getElementById('btn-toggle-item');
-        if(placingItem === 'gold') { btn.innerHTML = "🟡 Place: GOLD ("+foxInventory.gold+")"; btn.style.background = "#f1c40f"; }
-        else { btn.innerHTML = "💣 Place: BOMB ("+foxInventory.bombs+")"; btn.style.background = "#e74c3c"; }
+        if(placingItem === 'gold') { btn.innerHTML = "🟡 Place: GOLD ("+foxInventory.gold+")"; btn.style.background = "#f1c40f"; btn.style.borderColor = "#e67e22"; }
+        else { btn.innerHTML = "💣 Place: BOMB ("+foxInventory.bombs+")"; btn.style.background = "#e74c3c"; btn.style.borderColor = "#c0392b"; }
     });
 
+    let lastShootTime = 0;
     function handleShoot() {
         if(localPlayer.isDead || !myRole) return;
         const btn = document.getElementById('btn-shoot');
         if (!localPlayer.isAiming) { localPlayer.isAiming = true; btn.classList.add("aiming-mode"); return; } 
+        if (Date.now() - lastShootTime < 500) return; lastShootTime = Date.now();
+        
         localPlayer.isAiming = false; btn.classList.remove("aiming-mode");
         
         let gunX = localPlayer.x + (localPlayer.facingRight ? 30 : -30); let gunY = localPlayer.y + 10;
@@ -699,7 +750,7 @@
         for(let i=0; i<200; i++) { 
             hitX += localPlayer.aimDir.x * 5; hitY += localPlayer.aimDir.y * 5; 
             if (hitX < 0 || hitX > MAP_PIXEL_SIZE || hitY < 0 || hitY > MAP_PIXEL_SIZE) break;
-            if (gameState === 'playing' && myRole === 'Fox') {
+            if (gameState === 'playing' && myRole === 'Fox' && remoteId) {
                 if (hitX > remotePlayer.x - 30 && hitX < remotePlayer.x + 30 && hitY > remotePlayer.y - 20 && hitY < remotePlayer.y + 40) { hitPanda = true; break; }
             }
             let collided = false;
@@ -713,11 +764,11 @@
         roomRef.child('events').push({ type: 'shoot', x: hitX, y: hitY });
 
         if (gameState === 'hiding' && myRole === 'Fox') {
-            if(hitObjIndex !== -1 && !solidCover.includes(worldObjects[hitObjIndex].type)) {
+            if(hitObjIndex !== -1 && !solidCover.includes(worldObjects[hitObjIndex].type) && !worldObjects[hitObjIndex].isHidingSpot) {
                 if(hitObjIndex === safeObjIndex || hitObjIndex === passwordObjIndex) { showAlert("CAN'T HIDE HERE!", "#e74c3c"); return; }
                 if(mapItems[hitObjIndex]) { showAlert("ALREADY OCCUPIED!", "#e67e22"); return; }
-                if(placingItem === 'gold' && foxInventory.gold > 0) { foxInventory.gold--; roomRef.child(`items/${hitObjIndex}`).set('gold'); showAlert("GOLD PLACED!", "#f1c40f"); } 
-                else if(placingItem === 'bomb' && foxInventory.bombs > 0) { foxInventory.bombs--; roomRef.child(`items/${hitObjIndex}`).set('bomb'); showAlert("BOMB PLACED!", "#e74c3c"); } 
+                if(placingItem === 'gold' && foxInventory.gold > 0) { foxInventory.gold--; mapItems[hitObjIndex] = 'gold'; roomRef.child(`items/${hitObjIndex}`).set('gold'); showAlert("GOLD PLACED!", "#f1c40f"); } 
+                else if(placingItem === 'bomb' && foxInventory.bombs > 0) { foxInventory.bombs--; mapItems[hitObjIndex] = 'bomb'; roomRef.child(`items/${hitObjIndex}`).set('bomb'); showAlert("BOMB PLACED!", "#e74c3c"); } 
                 else { showAlert("OUT OF AMMO!", "#bdc3c7"); }
                 let btnSwap = document.getElementById('btn-toggle-item');
                 if(placingItem === 'gold') btnSwap.innerHTML = "🟡 Place: GOLD ("+foxInventory.gold+")"; else btnSwap.innerHTML = "💣 Place: BOMB ("+foxInventory.bombs+")";
@@ -752,9 +803,18 @@
                     foundSomething = true;
                 }
                 else if(mapItems[i]) {
-                    if(mapItems[i] === 'gold') { showAlert("🟡 GOLD FOUND!", "#f1c40f"); roomRef.child('stats/goldFound').transaction(c => (c || 0) + 1); } 
-                    else if (mapItems[i] === 'bomb') { showAlert("💥 BOMB HIT!", "#e74c3c"); localPlayer.hp -= 25; roomRef.child('players/' + myId).update({ hp: localPlayer.hp }); roomRef.child('events').push({ type: 'shoot', x: obj.x+40, y: obj.y+40 }); if(localPlayer.hp <= 0 && isHost) checkWinCondition(); }
-                    roomRef.child(`items/${i}`).remove(); foundSomething = true;
+                    if(mapItems[i] === 'gold') { 
+                        delete mapItems[i]; showAlert("🟡 GOLD FOUND!", "#f1c40f"); 
+                        roomRef.child('stats/goldFound').transaction(c => (c || 0) + 1); 
+                        roomRef.child(`items/${i}`).remove(); 
+                    } 
+                    else if (mapItems[i] === 'bomb') { 
+                        delete mapItems[i]; showAlert("💥 BOMB HIT!", "#e74c3c"); 
+                        localPlayer.hp -= 25; roomRef.child('players/' + myId).update({ hp: localPlayer.hp }); 
+                        roomRef.child('events').push({ type: 'shoot', x: obj.x+40, y: obj.y+40 }); 
+                        roomRef.child(`items/${i}`).remove(); 
+                    }
+                    foundSomething = true;
                 }
             }
         }
@@ -767,6 +827,22 @@
     // ==========================================
     // 8. RENDER PIPELINE
     // ==========================================
+    function drawWorldObjFallback(ctx, wObj, dX, dY, dSize) {
+        ctx.save(); ctx.translate(dX, dY);
+        if (solidCover.includes(wObj.type)) {
+            ctx.fillStyle = '#34495e'; ctx.fillRect(0, 0, dSize, dSize);
+            ctx.strokeStyle = '#2c3e50'; ctx.lineWidth = 4; ctx.strokeRect(0, 0, dSize, dSize);
+        } else if (wObj.isHidingSpot) {
+            ctx.fillStyle = '#2ecc71'; ctx.beginPath(); ctx.arc(dSize/2, dSize/2, dSize/2, 0, Math.PI * 2); ctx.fill();
+        } else {
+            ctx.fillStyle = wObj.type === 'safe' ? '#7f8c8d' : '#e67e22'; 
+            ctx.fillRect(10, 10, dSize-20, dSize-20);
+        }
+        ctx.fillStyle = '#fff'; ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText(wObj.type.substring(0, 4).toUpperCase(), dSize/2, dSize/2 + 5);
+        ctx.restore();
+    }
+
     let lastTime = 0;
     function gameLoop(timestamp) {
         let dt = (timestamp - lastTime) / 1000; if(dt > 0.05) dt = 0.05; lastTime = timestamp;
@@ -780,6 +856,9 @@
             camera.x += (targetCamX - camera.x) * camLerp; camera.y += (targetCamY - camera.y) * camLerp;
 
             ctx.save(); ctx.translate(-Math.floor(camera.x), -Math.floor(camera.y));
+
+            // Map Bounds
+            ctx.fillStyle = '#1e272e'; ctx.fillRect(-1000, -1000, MAP_PIXEL_SIZE+2000, 1000); ctx.fillRect(-1000, MAP_PIXEL_SIZE, MAP_PIXEL_SIZE+2000, 1000); ctx.fillRect(-1000, 0, 1000, MAP_PIXEL_SIZE); ctx.fillRect(MAP_PIXEL_SIZE, 0, 1000, MAP_PIXEL_SIZE);
 
             let screenLeft = camera.x - TILE_SIZE; let screenRight = camera.x + canvas.width + TILE_SIZE;
             let screenTop = camera.y - TILE_SIZE; let screenBottom = camera.y + canvas.height + TILE_SIZE*2;
@@ -805,11 +884,15 @@
                 if(item.type === 'player') item.obj.draw(ctx);
                 else {
                     let wObj = item.obj; 
-                    if(!wObj.isSolid && wObj.type !== 'bush' && wObj.type !== 'grass' && wObj.type !== 'shroom') { ctx.fillStyle = "rgba(0,0,0,0.2)"; ctx.beginPath(); ctx.ellipse(wObj.x + wObj.size/2, wObj.y + wObj.size - 5, wObj.size*0.45, wObj.size*0.15, 0, 0, Math.PI * 2); ctx.fill(); }
-                    if(images[wObj.type] && images[wObj.type].complete) {
-                        let dSize = wObj.size; let dX = wObj.x; let dY = wObj.y;
-                        if(['tree', 'stall', 'tent', 'statue'].includes(wObj.type)) { dSize = wObj.size * 1.4; dX = wObj.x - 15; dY = wObj.y - 30; }
+                    if(!wObj.isSolid && !wObj.isHidingSpot) { ctx.fillStyle = "rgba(0,0,0,0.2)"; ctx.beginPath(); ctx.ellipse(wObj.x + wObj.size/2, wObj.y + wObj.size - 5, wObj.size*0.45, wObj.size*0.15, 0, 0, Math.PI * 2); ctx.fill(); }
+                    
+                    let dSize = wObj.size; let dX = wObj.x; let dY = wObj.y;
+                    if(['tree', 'stall', 'tent', 'statue'].includes(wObj.type)) { dSize = wObj.size * 1.4; dX = wObj.x - 15; dY = wObj.y - 30; }
+                    
+                    if(images[wObj.type] && images[wObj.type].complete && images[wObj.type].naturalWidth > 0) {
                         ctx.drawImage(images[wObj.type], dX, dY, dSize, dSize);
+                    } else {
+                        drawWorldObjFallback(ctx, wObj, dX, dY, dSize);
                     }
                 }
             }
