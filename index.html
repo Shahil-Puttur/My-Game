@@ -244,7 +244,6 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    // Server time syncing for 100% accurate countdowns
     let serverTimeOffset = 0;
     db.ref('.info/serverTimeOffset').on('value', snap => { serverTimeOffset = snap.val() || 0; });
     function getSyncTime() { return Date.now() + serverTimeOffset; }
@@ -278,7 +277,6 @@
     let foxInventory = { gold: 5, bombs: 2 };
     let placingItem = 'gold'; 
     
-    // Keypad Logic Variables
     let safePassword = "0000";
     let enteredPwd = "";
     let safeUnlocked = false;
@@ -288,7 +286,8 @@
     let safeObjIndex = -1;
     let mapSeed = 1;
 
-    // Deterministic Mulberry32 PRNG
+    let damageFlash = 0;
+
     function randomSeed() {
         mapSeed |= 0; mapSeed = mapSeed + 0x6D2B79F5 | 0;
         let t = Math.imul(mapSeed ^ mapSeed >>> 15, 1 | mapSeed);
@@ -304,36 +303,45 @@
     function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
     window.addEventListener('resize', resize); resize();
 
+    // SPRITESHEET DATA STRUCTURE (9 New Assets mapping)
+    const newPropsSheet = ['dumpster', 'arcade', 'tires', 'hydrant', 'mailbox', 'gaspump', 'toilet', 'doghouse', 'radar'];
+    const propsMap = {
+        'dumpster': {c: 0, r: 0}, 'arcade': {c: 1, r: 0}, 'tires': {c: 2, r: 0},
+        'hydrant':  {c: 0, r: 1}, 'mailbox': {c: 1, r: 1}, 'gaspump': {c: 2, r: 1},
+        'toilet':   {c: 0, r: 2}, 'doghouse':{c: 1, r: 2}, 'radar':  {c: 2, r: 2}
+    };
+
     const images = {}; let assetsLoaded = 0; let assetsFinished = false;
+    
+    // ADDED 'props' pointing to our new 9-in-1 image!
     const assetList = { 
         panda: 'panda.png', fox: 'fox.png', grass: 'Tall Grass Patch.png', log: 'Hollow Log.png', bush: 'Berry Bush.png', 
         tree: 'Pine Tree.png', shroom: 'Giant Mushroom.png', wall: 'Brick Wall Segment.png', fence: 'Wooden Fence.png', pillar: 'Stone Pillar.png', well: 'Water Well.png', 
         statue: 'Animal Statue.png', barrel: 'Wooden Barrels.png', safe: 'Metal Safe.png', crate: 'Supply Crate.png', vending: 'Vending Machine.png', sack: 'Loot Sack.png', 
-        tent: 'Camping Tent.png', fire: 'Campfire.png', sign: 'Signpost.png', cart: 'Broken Cart.png', stall: 'Market Stall.png'
+        tent: 'Camping Tent.png', fire: 'Campfire.png', sign: 'Signpost.png', cart: 'Broken Cart.png', stall: 'Market Stall.png',
+        props: 'props_spritesheet.png' 
     };
-    const totalAssets = Object.keys(assetList).length + 1; // +1 for audio
+    const totalAssets = Object.keys(assetList).length + 1; 
+
+    // Fast loading background mask
+    let forcedStart = false;
+    setTimeout(() => { 
+        if (!forcedStart) { 
+            forcedStart = true;
+            showScreen('screen-name'); 
+        } 
+    }, 2000); 
 
     function assetCheck() {
         assetsLoaded++; 
         document.getElementById('loading-bar').style.width = Math.floor((assetsLoaded / totalAssets) * 100) + "%";
-        if (assetsLoaded >= totalAssets && !assetsFinished) {
-            assetsFinished = true;
+        if (assetsLoaded >= totalAssets && !forcedStart) {
+            forcedStart = true;
             document.getElementById('loading-text').innerText = "Assets Loaded. Ready!";
-            setTimeout(() => { showScreen('screen-name'); }, 500);
+            setTimeout(() => { showScreen('screen-name'); }, 200);
         }
     }
 
-    // FIX 1: Extended timeout from 2 seconds to 15 seconds to allow split-screen mobile networks to catch up.
-    setTimeout(() => { 
-        if (!assetsFinished) { 
-            console.warn("Network slow! Forcing game to start with available assets.");
-            assetsFinished = true;
-            assetsLoaded = totalAssets; 
-            assetCheck(); 
-        } 
-    }, 15000); 
-
-    // FIX 2: Better Audio loading that doesn't block images
     const audioPool = []; 
     const shootAudio = new Audio(); 
     let audioLoaded = false;
@@ -366,8 +374,10 @@
     let camera = { x: 0, y: 0, shakeTime: 0, shakeIntensity: 0 }; 
     const explosions = []; const renderQueue = []; 
     let worldObjects = [];
-    const solidCover = ['tree', 'wall', 'fence', 'pillar', 'well', 'statue', 'vending', 'tent', 'sign', 'cart', 'stall'];
-    const destructibles = ['safe', 'barrel', 'crate', 'sack', 'log'];
+
+    // Merging new 9 assets into the spawning pools!
+    const solidCover = ['tree', 'wall', 'fence', 'pillar', 'well', 'statue', 'vending', 'tent', 'sign', 'cart', 'stall', 'arcade', 'hydrant', 'mailbox', 'gaspump', 'toilet', 'doghouse', 'radar'];
+    const destructibles = ['safe', 'barrel', 'crate', 'sack', 'log', 'dumpster', 'tires'];
     const hidingSpots = ['bush', 'grass', 'shroom', 'fire'];
 
     // ==========================================
@@ -446,7 +456,15 @@
             } else {
                 let dx = this.targetX - this.x; let dy = this.targetY - this.y;
                 this.isMoving = (Math.abs(dx) > 2 || Math.abs(dy) > 2);
-                this.x += dx * 10 * dt; this.y += dy * 10 * dt;
+                
+                if (Math.abs(dx) > TILE_SIZE * 3 || Math.abs(dy) > TILE_SIZE * 3) {
+                    this.x = this.targetX;
+                    this.y = this.targetY;
+                } else {
+                    this.x += dx * 10 * dt; 
+                    this.y += dy * 10 * dt;
+                }
+                
                 if (this.isMoving && !this.isAiming) {
                     let angle = Math.atan2(dy, dx) * (180 / Math.PI);
                     if (angle > -45 && angle <= 45) { this.frameY = 2; this.facingRight = true; } 
@@ -468,6 +486,7 @@
             if(pBox.left < 0 || pBox.right > MAP_PIXEL_SIZE || pBox.top < 0 || pBox.bottom > MAP_PIXEL_SIZE) return true;
             for (let i = 0; i < worldObjects.length; i++) {
                 let obj = worldObjects[i];
+                if (obj.hiddenUntil && Date.now() < obj.hiddenUntil) continue;
                 if (obj.isSolid && pBox.right > obj.x && pBox.left < obj.x + obj.size && pBox.bottom > obj.y + (obj.size*0.5) && pBox.top < obj.y + obj.size) return true;
             }
             return false;
@@ -479,7 +498,6 @@
             let spriteName = this.role === 'Fox' ? 'fox' : 'panda';
             let img = images[spriteName];
             
-            // Check if the image successfully downloaded
             if (img && img.complete && img.naturalWidth > 0) {
                 let spriteW = img.width / 4; let spriteH = img.height / 3;
                 ctx.save(); ctx.translate(this.x, this.y);
@@ -516,7 +534,6 @@
     function generateMap() {
         worldObjects = []; mapSeed = window.dbMapSeed || 12345;
         
-        // Use seed to determine safe password for both players identically
         let spRand = randomSeed();
         safePassword = Math.floor(spRand * 9000 + 1000).toString();
         safeUnlocked = false;
@@ -527,10 +544,11 @@
                 let x = c * TILE_SIZE; let y = r * TILE_SIZE;
                 if (r === 0 || r === MAP_SIZE - 1 || c === 0 || c === MAP_SIZE - 1) { worldObjects.push({ type: 'tree', x: x, y: y, size: TILE_SIZE, isSolid: true }); continue; } 
                 if ((c < 5 && r < 5) || (c > MAP_SIZE - 6 && r > MAP_SIZE - 6)) continue; 
+                
                 let rand = randomSeed();
-                if (rand > 0.96) worldObjects.push({ type: destructibles[Math.floor(randomSeed()*destructibles.length)], x: x, y: y, size: TILE_SIZE-10, isSolid: true });
-                else if (rand > 0.90) worldObjects.push({ type: hidingSpots[Math.floor(randomSeed()*hidingSpots.length)], x: x, y: y, size: TILE_SIZE, isSolid: false, isHidingSpot: true }); 
-                else if (rand > 0.85) worldObjects.push({ type: solidCover[Math.floor(randomSeed()*solidCover.length)], x: x, y: y, size: TILE_SIZE, isSolid: true });
+                if (rand > 0.80) worldObjects.push({ type: destructibles[Math.floor(randomSeed()*destructibles.length)], x: x, y: y, size: TILE_SIZE-10, isSolid: true });
+                else if (rand > 0.65) worldObjects.push({ type: hidingSpots[Math.floor(randomSeed()*hidingSpots.length)], x: x, y: y, size: TILE_SIZE, isSolid: false, isHidingSpot: true }); 
+                else if (rand > 0.50) worldObjects.push({ type: solidCover[Math.floor(randomSeed()*solidCover.length)], x: x, y: y, size: TILE_SIZE, isSolid: true });
             }
         }
         for (let i = 0; i < worldObjects.length; i++) { if (!solidCover.includes(worldObjects[i].type) && !worldObjects[i].isHidingSpot) candidateContainers.push(i); }
@@ -662,7 +680,6 @@
         roomRef.child('players/'+remoteId+'/role').set(newRemoteRole); roomRef.child('players/'+remoteId+'/ready').set(false);
     };
 
-    // PLAY AGAIN FEATURE
     document.getElementById('btn-play-again').onclick = () => {
         if(!isHost) return;
         roomRef.update({ 
@@ -709,7 +726,13 @@
                     myRole = p.role; localPlayer.role = myRole;
                     amIReady = p.ready || false;
                     
-                    if(p.hp !== undefined && p.hp !== localPlayer.hp) { localPlayer.hp = p.hp; }
+                    if(p.hp !== undefined && p.hp < localPlayer.hp) {
+                        damageFlash = 1.0; 
+                        camera.shakeTime = 15; camera.shakeIntensity = 20;
+                        if(window.playShootSound) window.playShootSound();
+                    }
+                    if(p.hp !== undefined) { localPlayer.hp = p.hp; }
+                    
                     if(p.teleportX !== undefined) {
                         localPlayer.x = p.teleportX; localPlayer.y = p.teleportY;
                         roomRef.child('players/' + myId).child('teleportX').remove();
@@ -786,7 +809,6 @@
             else if(gameState === 'playing') {
                 showScreen('ui-layer');
                 document.getElementById('btn-toggle-item').style.display = 'none';
-                // Both players use the Shoot button now!
                 document.getElementById('btn-shoot').style.display = 'flex'; 
 
                 if(myRole === 'Fox') {
@@ -814,12 +836,8 @@
             }
         });
 
-        // Listen for safe unlock changes globally
         roomRef.child('safeUnlocked').on('value', s => {
-            if(s.val() === true) {
-                safeUnlocked = true;
-                if(worldObjects[safeObjIndex]) worldObjects[safeObjIndex].type = 'crate';
-            }
+            if(s.val() === true) { safeUnlocked = true; if(worldObjects[safeObjIndex]) worldObjects[safeObjIndex].type = 'crate'; }
         });
 
         roomRef.child('items').on('value', s => { mapItems = s.val() || {}; });
@@ -909,45 +927,19 @@
         }
     }
 
-    // -- UI KEYPAD & PASSWORD LOGIC --
-    function closeOverlays() {
-        document.getElementById('screen-paper').style.display = 'none';
-        document.getElementById('screen-keypad').style.display = 'none';
-    }
-
-    function showPaper() {
-        document.getElementById('paper-pwd-text').innerText = safePassword;
-        document.getElementById('screen-paper').style.display = 'flex';
-    }
-
-    function showKeypad() {
-        enteredPwd = "";
-        updatePwdDisplay();
-        document.getElementById('screen-keypad').style.display = 'flex';
-    }
-
-    function pressKey(k) {
-        if(k === 'C') enteredPwd = "";
-        else if (enteredPwd.length < 4) enteredPwd += k.toString();
-        updatePwdDisplay();
-    }
-
-    function updatePwdDisplay() {
-        let disp = enteredPwd.padEnd(4, "_").split("").join(" ");
-        document.getElementById('pwd-display').innerText = disp;
-    }
+    function closeOverlays() { document.getElementById('screen-paper').style.display = 'none'; document.getElementById('screen-keypad').style.display = 'none'; }
+    function showPaper() { document.getElementById('paper-pwd-text').innerText = safePassword; document.getElementById('screen-paper').style.display = 'flex'; }
+    function showKeypad() { enteredPwd = ""; updatePwdDisplay(); document.getElementById('screen-keypad').style.display = 'flex'; }
+    function pressKey(k) { if(k === 'C') enteredPwd = ""; else if (enteredPwd.length < 4) enteredPwd += k.toString(); updatePwdDisplay(); }
+    function updatePwdDisplay() { let disp = enteredPwd.padEnd(4, "_").split("").join(" "); document.getElementById('pwd-display').innerText = disp; }
 
     function submitPassword() {
         if(enteredPwd === safePassword) {
-            closeOverlays();
-            showAlert("💉 HEALTH +30%!", "#2ecc71");
-            localPlayer.hp = Math.min(100, localPlayer.hp + 30);
-            roomRef.child('players/' + myId).update({ hp: localPlayer.hp });
+            closeOverlays(); showAlert("💉 HEALTH +30%!", "#2ecc71");
+            roomRef.child('players/' + myId + '/hp').transaction(hp => Math.min(100, (hp||0) + 30));
             roomRef.child('safeUnlocked').set(true); 
         } else {
-            showAlert("WRONG CODE!", "#e74c3c");
-            enteredPwd = "";
-            updatePwdDisplay();
+            showAlert("WRONG CODE!", "#e74c3c"); enteredPwd = ""; updatePwdDisplay();
         }
     }
 
@@ -960,12 +952,10 @@
 
     let lastShootTime = 0;
     
-    // THE NEW UNIVERSAL SHOOT LOGIC FOR BOTH PANDA AND FOX
     function handleShoot() {
         if(localPlayer.isDead || !myRole) return;
         const btn = document.getElementById('btn-shoot');
         
-        // Aim Toggle
         if (!localPlayer.isAiming) { localPlayer.isAiming = true; btn.classList.add("aiming-mode"); return; } 
         if (Date.now() - lastShootTime < 500) return; lastShootTime = Date.now();
         
@@ -974,7 +964,6 @@
         let gunX = localPlayer.x + (localPlayer.facingRight ? 30 : -30); let gunY = localPlayer.y + 10;
         let hitX = gunX; let hitY = gunY; let hitObjIndex = -1; let hitOpponent = false;
 
-        // Raycast Calculation
         for(let i=0; i<200; i++) { 
             hitX += localPlayer.aimDir.x * 5; hitY += localPlayer.aimDir.y * 5; 
             if (hitX < 0 || hitX > MAP_PIXEL_SIZE || hitY < 0 || hitY > MAP_PIXEL_SIZE) break;
@@ -987,6 +976,7 @@
             let collided = false;
             for (let j=0; j < worldObjects.length; j++) {
                 let obj = worldObjects[j];
+                if (obj.hiddenUntil && Date.now() < obj.hiddenUntil) continue;
                 if ((obj.isSolid || obj.isHidingSpot) && hitX > obj.x && hitX < obj.x + obj.size && hitY > obj.y + 10 && hitY < obj.y + obj.size) { 
                     hitObjIndex = j; collided = true; break; 
                 }
@@ -994,7 +984,6 @@
             if (collided) break; 
         }
 
-        // Trigger visual/sound sync
         roomRef.child('events').push({ type: 'shoot', x: hitX, y: hitY });
         if(window.playShootSound) window.playShootSound();
 
@@ -1014,12 +1003,9 @@
             else if (gameState === 'playing') {
                 if(hitOpponent && remoteId) {
                     let dist = Math.sqrt(Math.pow(localPlayer.x - remotePlayer.x, 2) + Math.pow(localPlayer.y - remotePlayer.y, 2));
-                    // Check if Fox is reasonably close to drop 10% HP
                     if(dist < 400) { 
-                        showAlert("PANDA HIT!", "#2ecc71");
-                        roomRef.child('players/' + remoteId).update({ hp: Math.max(0, remotePlayer.hp - 10) });
-                        
-                        // FOX COMBAT BALANCE: Instantly teleport back to the start!
+                        showAlert("PANDA HIT! -10 HP", "#2ecc71");
+                        roomRef.child('players/' + remoteId + '/hp').transaction(hp => Math.max(0, (hp || 100) - 10));
                         localPlayer.x = (MAP_SIZE - 4) * TILE_SIZE; 
                         localPlayer.y = (MAP_SIZE - 4) * TILE_SIZE;
                         roomRef.child('players/' + myId).update({ x: localPlayer.x, y: localPlayer.y });
@@ -1027,54 +1013,42 @@
                 }
             }
         } 
-        
         // ======= PANDA MECHANICS =======
         else if (myRole === 'Panda' && gameState === 'playing') {
+            if(hitOpponent) { showAlert("You can't shoot Fox! It doesn't effect him.", "#e74c3c"); return; }
             
-            // Panda shot the Fox
-            if(hitOpponent) {
-                showAlert("You can't shoot Fox! It doesn't effect him.", "#e74c3c");
-                return;
-            }
-            
-            // Panda shot an Object
             if(hitObjIndex !== -1) {
                 let obj = worldObjects[hitObjIndex];
                 let dist = Math.sqrt(Math.pow(localPlayer.x - obj.x, 2) + Math.pow(localPlayer.y - obj.y, 2));
                 
-                if (dist > 400) {
-                    showAlert("TOO FAR TO INSPECT!", "#bdc3c7");
-                    return;
-                }
+                if (dist > 400) { showAlert("TOO FAR TO INSPECT!", "#bdc3c7"); return; }
 
                 if(hitObjIndex === passwordObjIndex) { 
-                    showPaper();
-                    showAlert("🔑 FOUND PASSWORD!", "#3498db");
+                    showPaper(); showAlert("🔑 FOUND PASSWORD!", "#3498db");
                 }
                 else if(hitObjIndex === safeObjIndex) {
-                    if(safeUnlocked) {
-                        showAlert("ALREADY EMPTY!", "#bdc3c7");
-                    } else {
-                        showKeypad();
-                    }
+                    if(safeUnlocked) showAlert("ALREADY EMPTY!", "#bdc3c7"); else showKeypad();
                 }
-                else if(mapItems[hitObjIndex]) {
-                    if(mapItems[hitObjIndex] === 'gold') { 
-                        delete mapItems[hitObjIndex]; 
-                        showAlert("🟡 GOLD FOUND!", "#f1c40f"); 
-                        roomRef.child('stats/goldFound').transaction(c => (c || 0) + 1); 
-                        roomRef.child(`items/${hitObjIndex}`).remove(); 
-                    } 
-                    else if (mapItems[hitObjIndex] === 'bomb') { 
-                        delete mapItems[hitObjIndex]; 
-                        showAlert("💥 BOMB HIT!", "#e74c3c"); 
-                        localPlayer.hp -= 25; 
-                        roomRef.child('players/' + myId).update({ hp: localPlayer.hp }); 
-                        roomRef.child('events').push({ type: 'shoot', x: obj.x+40, y: obj.y+40 }); 
-                        roomRef.child(`items/${hitObjIndex}`).remove(); 
+                else {
+                    obj.hiddenUntil = Date.now() + 2000;
+                    
+                    if(mapItems[hitObjIndex]) {
+                        if(mapItems[hitObjIndex] === 'gold') { 
+                            delete mapItems[hitObjIndex]; 
+                            showAlert("🟡 GOLD FOUND!", "#f1c40f"); 
+                            roomRef.child('stats/goldFound').transaction(c => (c || 0) + 1); 
+                            roomRef.child(`items/${hitObjIndex}`).remove(); 
+                        } 
+                        else if (mapItems[hitObjIndex] === 'bomb') { 
+                            delete mapItems[hitObjIndex]; 
+                            showAlert("💥 BOMB HIT!", "#e74c3c"); 
+                            roomRef.child('players/' + myId + '/hp').transaction(hp => Math.max(0, (hp || 100) - 25));
+                            roomRef.child('events').push({ type: 'shoot', x: obj.x+40, y: obj.y+40 }); 
+                            roomRef.child(`items/${hitObjIndex}`).remove(); 
+                        }
+                    } else {
+                        showAlert("NOTHING HERE...", "#ecf0f1");
                     }
-                } else {
-                    showAlert("NOTHING HERE...", "#ecf0f1");
                 }
             } else {
                 showAlert("NOTHING HERE...", "#ecf0f1");
@@ -1117,7 +1091,6 @@
 
             ctx.save(); ctx.translate(-Math.floor(camera.x), -Math.floor(camera.y));
 
-            // Map Bounds
             ctx.fillStyle = '#1e272e'; ctx.fillRect(-1000, -1000, MAP_PIXEL_SIZE+2000, 1000); ctx.fillRect(-1000, MAP_PIXEL_SIZE, MAP_PIXEL_SIZE+2000, 1000); ctx.fillRect(-1000, 0, 1000, MAP_PIXEL_SIZE); ctx.fillRect(MAP_PIXEL_SIZE, 0, 1000, MAP_PIXEL_SIZE);
 
             let screenLeft = camera.x - TILE_SIZE; let screenRight = camera.x + canvas.width + TILE_SIZE;
@@ -1135,7 +1108,7 @@
                 let obj = worldObjects[i];
                 if (obj.x > screenRight || obj.x + obj.size < screenLeft || obj.y > screenBottom || obj.y + obj.size * 2 < screenTop) continue;
                 let visualY = obj.y + obj.size; if(['stall', 'tree', 'tent'].includes(obj.type)) visualY = obj.y + (obj.size * 1.2); 
-                renderQueue.push({ type: 'world', y: visualY, obj: obj }); 
+                renderQueue.push({ type: 'world', y: visualY, obj: obj, id: i }); 
             }
             renderQueue.sort((a, b) => a.y - b.y);
 
@@ -1144,16 +1117,47 @@
                 if(item.type === 'player') item.obj.draw(ctx);
                 else {
                     let wObj = item.obj; 
+                    
+                    if (wObj.hiddenUntil && Date.now() < wObj.hiddenUntil) {
+                        ctx.globalAlpha = 0.0; 
+                    } else {
+                        ctx.globalAlpha = 1.0;
+                    }
+
                     if(!wObj.isSolid && !wObj.isHidingSpot) { ctx.fillStyle = "rgba(0,0,0,0.2)"; ctx.beginPath(); ctx.ellipse(wObj.x + wObj.size/2, wObj.y + wObj.size - 5, wObj.size*0.45, wObj.size*0.15, 0, 0, Math.PI * 2); ctx.fill(); }
                     
                     let dSize = wObj.size; let dX = wObj.x; let dY = wObj.y;
-                    if(['tree', 'stall', 'tent', 'statue'].includes(wObj.type)) { dSize = wObj.size * 1.4; dX = wObj.x - 15; dY = wObj.y - 30; }
                     
-                    if(images[wObj.type] && images[wObj.type].complete && images[wObj.type].naturalWidth > 0) {
+                    // APPLY Isometric offset to old big objects AND the 9 new props
+                    if(['tree', 'stall', 'tent', 'statue'].includes(wObj.type) || newPropsSheet.includes(wObj.type)) { 
+                        dSize = wObj.size * 1.4; 
+                        dX = wObj.x - 15; 
+                        dY = wObj.y - (wObj.size * 0.4); 
+                    }
+                    
+                    if (myRole === 'Fox' && mapItems[item.id]) {
+                        ctx.shadowColor = mapItems[item.id] === 'gold' ? '#f1c40f' : '#e74c3c';
+                        ctx.shadowBlur = 20;
+                    } else {
+                        ctx.shadowBlur = 0;
+                    }
+
+                    // SPRITESHEET SLICING LOGIC
+                    if (newPropsSheet.includes(wObj.type) && images['props'] && images['props'].complete && images['props'].naturalWidth > 0) {
+                        let sheet = images['props'];
+                        let sW = sheet.width / 3;
+                        let sH = sheet.height / 3;
+                        let mapLoc = propsMap[wObj.type];
+                        ctx.drawImage(sheet, mapLoc.c * sW, mapLoc.r * sH, sW, sH, dX, dY, dSize, dSize);
+                    }
+                    // NORMAL SINGLE IMAGE DRAW
+                    else if(images[wObj.type] && images[wObj.type].complete && images[wObj.type].naturalWidth > 0) {
                         ctx.drawImage(images[wObj.type], dX, dY, dSize, dSize);
                     } else {
                         drawWorldObjFallback(ctx, wObj, dX, dY, dSize);
                     }
+
+                    ctx.shadowBlur = 0; ctx.globalAlpha = 1.0; 
                 }
             }
 
@@ -1182,6 +1186,15 @@
                 exp.radius += 480 * dt; exp.life -= 4.8 * dt; if (exp.life <= 0) explosions.splice(i, 1);
             }
             ctx.restore();
+
+            if (damageFlash > 0) {
+                ctx.save();
+                ctx.setTransform(1, 0, 0, 1, 0, 0);
+                ctx.fillStyle = `rgba(231, 76, 60, ${damageFlash * 0.4})`;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.restore();
+                damageFlash -= dt * 1.5; 
+            }
         }
         
         requestAnimationFrame(gameLoop);
