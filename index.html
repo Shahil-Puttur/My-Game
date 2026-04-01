@@ -178,22 +178,17 @@
 
 <script>
     // ==========================================
-    // 1. FIREBASE CONFIGURATION 
+    // 1. FIREBASE CONFIGURATION (YOUR EXACT KEYS)
     // ==========================================
     const firebaseConfig = {
-        projectId: "gen-lang-client-0721750473",
-        appId: "1:25200927562:web:5d19a25afaa598ad3ed7b3",
-        apiKey: "AIzaSyDepR_9lTeks4Mu-sZTjgH-WVOTTSMMiQY",
-        authDomain: "gen-lang-client-0721750473.firebaseapp.com",
-        firestoreDatabaseId: "ai-studio-5cbdcbd4-985b-4a75-b840-42cf50547bf6",
-        storageBucket: "gen-lang-client-0721750473.firebasestorage.app",
-        messagingSenderId: "25200927562",
-        measurementId: ""
+        apiKey: "AIzaSyBJSpiM9JezegPH0LkXInfgbyPWyzs6Epk",
+        authDomain: "hideandhunt.firebaseapp.com",
+        databaseURL: "https://hideandhunt-default-rtdb.firebaseio.com/", // <--- Here is your Database URL!
+        projectId: "hideandhunt",
+        storageBucket: "hideandhunt.firebasestorage.app",
+        messagingSenderId: "613687870413",
+        appId: "1:613687870413:web:4053277053fbbd4f05ba84"
     };
-
-    if (!firebaseConfig.databaseURL) {
-        firebaseConfig.databaseURL = "https://" + firebaseConfig.projectId + "-default-rtdb.firebaseio.com";
-    }
 
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
@@ -508,8 +503,25 @@
         
         if(!inputId || !inputPass) { alert("Please enter both Room ID and Password!"); return; }
         
+        // UI Feedback during server check
+        let btn = document.getElementById('btn-submit-join');
+        let oldText = btn.innerText;
+        btn.innerText = "Checking Server...";
+        btn.style.opacity = "0.7";
+        btn.style.pointerEvents = "none";
+        
         let tempRef = db.ref('rooms/' + inputId);
+        
+        // Timeout catch if database is unresponsive
+        let timeout = setTimeout(() => {
+            btn.innerText = oldText; btn.style.opacity = "1"; btn.style.pointerEvents = "auto";
+            alert("Server timeout. Please check your internet connection.");
+        }, 5000);
+
         tempRef.once('value', snap => {
+            clearTimeout(timeout);
+            btn.innerText = oldText; btn.style.opacity = "1"; btn.style.pointerEvents = "auto";
+            
             let data = snap.val();
             if(!data) { alert("Room not found! Check the ID."); return; }
             if(data.password !== inputPass) { alert("Incorrect Password!"); return; }
@@ -531,7 +543,10 @@
             showScreen('screen-lobby');
             setupRoomListeners();
         }).catch(e => {
-            console.error(e); alert("Network error. Please check your connection.");
+            clearTimeout(timeout);
+            btn.innerText = oldText; btn.style.opacity = "1"; btn.style.pointerEvents = "auto";
+            console.error(e); 
+            alert("Network error. Please try again.");
         });
     }
 
@@ -981,4 +996,4 @@
     }
 </script>
 </body>
-</html>
+                                                                                                                                        </html>
