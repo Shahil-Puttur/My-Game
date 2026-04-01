@@ -21,12 +21,18 @@
         #ui-layer { background: transparent; z-index: 10; pointer-events: none; }
         
         /* IN-GAME HUD */
-        #hud-top { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); background: rgba(0, 0, 0, 0.7); padding: 10px 20px; border-radius: 20px; border: 3px solid #f1c40f; color: white; font-size: 18px; text-transform: uppercase; font-weight: bold; display: flex; flex-direction: column; gap: 5px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); pointer-events: none; text-align: center; }
-        #hud-right { position: absolute; top: 15px; right: 15px; background: rgba(0, 0, 0, 0.6); padding: 10px 15px; border-radius: 12px; border: 3px solid #f39c12; color: white; font-size: 16px; font-weight: bold; text-transform: uppercase; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); pointer-events: none; min-width: 140px;}
+        #hud-top { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); background: rgba(0, 0, 0, 0.7); padding: 10px 20px; border-radius: 20px; border: 3px solid #f1c40f; color: white; font-size: 18px; text-transform: uppercase; font-weight: bold; display: flex; flex-direction: column; gap: 5px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); pointer-events: none; text-align: center; z-index: 20; }
+        #hud-right { position: absolute; top: 15px; right: 15px; background: rgba(0, 0, 0, 0.6); padding: 10px 15px; border-radius: 12px; border: 3px solid #f39c12; color: white; font-size: 16px; font-weight: bold; text-transform: uppercase; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); pointer-events: none; min-width: 140px; z-index: 20;}
         .hud-player { display: flex; justify-content: space-between; align-items: center; gap: 15px; }
         
-        #btn-toggle-item { position: absolute; top: 15px; left: 15px; background: #f1c40f; border: 3px solid #e67e22; color: #130f40; padding: 10px 20px; border-radius: 20px; font-size: 16px; font-weight: 900; pointer-events: auto; cursor: pointer; box-shadow: 0 5px 0 #d35400; display: none; gap: 5px; text-transform: uppercase;}
+        #btn-toggle-item { position: absolute; top: 15px; left: 15px; background: #f1c40f; border: 3px solid #e67e22; color: #130f40; padding: 10px 20px; border-radius: 20px; font-size: 16px; font-weight: 900; pointer-events: auto; cursor: pointer; box-shadow: 0 5px 0 #d35400; display: none; gap: 5px; text-transform: uppercase; z-index: 20;}
         #btn-toggle-item:active { transform: translateY(5px); box-shadow: none; }
+
+        /* SPLIT SCREEN / MOBILE FIX */
+        @media (max-width: 600px) {
+            #hud-right { top: 90px; right: 10px; }
+            #btn-toggle-item { top: 90px; left: 10px; font-size: 13px; padding: 10px; }
+        }
 
         #joystick-zone { position: absolute; bottom: 50px; left: 30px; width: 130px; height: 130px; background: rgba(0, 0, 0, 0.15); border-radius: 50%; pointer-events: auto; border: 3px solid rgba(255,255,255,0.2); backdrop-filter: blur(4px); }
         #joystick-knob { position: absolute; top: 50%; left: 50%; width: 50px; height: 50px; background: #fff; border-radius: 50%; transform: translate(-50%, -50%); box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
@@ -298,30 +304,57 @@
     function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
     window.addEventListener('resize', resize); resize();
 
-    const images = {}; let assetsLoaded = 0;
+    const images = {}; let assetsLoaded = 0; let assetsFinished = false;
     const assetList = { 
         panda: 'panda.png', fox: 'fox.png', grass: 'Tall Grass Patch.png', log: 'Hollow Log.png', bush: 'Berry Bush.png', 
         tree: 'Pine Tree.png', shroom: 'Giant Mushroom.png', wall: 'Brick Wall Segment.png', fence: 'Wooden Fence.png', pillar: 'Stone Pillar.png', well: 'Water Well.png', 
         statue: 'Animal Statue.png', barrel: 'Wooden Barrels.png', safe: 'Metal Safe.png', crate: 'Supply Crate.png', vending: 'Vending Machine.png', sack: 'Loot Sack.png', 
         tent: 'Camping Tent.png', fire: 'Campfire.png', sign: 'Signpost.png', cart: 'Broken Cart.png', stall: 'Market Stall.png'
     };
-    const totalAssets = Object.keys(assetList).length + 1;
+    const totalAssets = Object.keys(assetList).length + 1; // +1 for audio
 
     function assetCheck() {
         assetsLoaded++; 
         document.getElementById('loading-bar').style.width = Math.floor((assetsLoaded / totalAssets) * 100) + "%";
-        if (assetsLoaded >= totalAssets) {
+        if (assetsLoaded >= totalAssets && !assetsFinished) {
+            assetsFinished = true;
             document.getElementById('loading-text').innerText = "Assets Loaded. Ready!";
             setTimeout(() => { showScreen('screen-name'); }, 500);
         }
     }
 
-    setTimeout(() => { if (assetsLoaded < totalAssets) { assetsLoaded = totalAssets; assetCheck(); console.warn("Missing Image Assets! Using Fallback Renderer."); } }, 2000);
+    // FIX 1: Extended timeout from 2 seconds to 15 seconds to allow split-screen mobile networks to catch up.
+    setTimeout(() => { 
+        if (!assetsFinished) { 
+            console.warn("Network slow! Forcing game to start with available assets.");
+            assetsFinished = true;
+            assetsLoaded = totalAssets; 
+            assetCheck(); 
+        } 
+    }, 15000); 
 
-    const audioPool = []; const shootAudio = new Audio('shoot.mp3'); 
-    shootAudio.oncanplaythrough = assetCheck; shootAudio.onerror = assetCheck; 
+    // FIX 2: Better Audio loading that doesn't block images
+    const audioPool = []; 
+    const shootAudio = new Audio(); 
+    let audioLoaded = false;
+    const markAudio = () => { if(!audioLoaded) { audioLoaded = true; assetCheck(); } };
+    shootAudio.oncanplaythrough = markAudio; 
+    shootAudio.onerror = markAudio; 
+    shootAudio.src = 'shoot.mp3';
     for(let i=0; i<5; i++) audioPool.push(shootAudio.cloneNode());
+    
     window.playShootSound = function() { try { window.audioIndex = window.audioIndex || 0; audioPool[window.audioIndex].volume = 0.5; audioPool[window.audioIndex].currentTime = 0; audioPool[window.audioIndex].play().catch(()=>{}); window.audioIndex = (window.audioIndex + 1) % audioPool.length; } catch(e) {} };
+
+    for (let key in assetList) {
+        let img = new Image(); 
+        let isLoaded = false;
+        const markLoaded = () => { if(!isLoaded) { isLoaded = true; assetCheck(); } };
+        img.onload = markLoaded; 
+        img.onerror = markLoaded; 
+        img.src = assetList[key];
+        if(img.complete && img.naturalWidth > 0) markLoaded(); 
+        images[key] = img;
+    }
 
     const TILE_SIZE = 80; 
     const gridCanvas = document.createElement('canvas'); gridCanvas.width = TILE_SIZE * 2; gridCanvas.height = TILE_SIZE * 2;
@@ -445,6 +478,8 @@
             ctx.fillStyle = "rgba(0,0,0,0.2)"; ctx.beginPath(); ctx.ellipse(this.x, this.y + 40, 25, 10, 0, 0, Math.PI * 2); ctx.fill();
             let spriteName = this.role === 'Fox' ? 'fox' : 'panda';
             let img = images[spriteName];
+            
+            // Check if the image successfully downloaded
             if (img && img.complete && img.naturalWidth > 0) {
                 let spriteW = img.width / 4; let spriteH = img.height / 3;
                 ctx.save(); ctx.translate(this.x, this.y);
