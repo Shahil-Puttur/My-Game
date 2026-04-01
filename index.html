@@ -183,7 +183,7 @@
     const firebaseConfig = {
         apiKey: "AIzaSyBJSpiM9JezegPH0LkXInfgbyPWyzs6Epk",
         authDomain: "hideandhunt.firebaseapp.com",
-        databaseURL: "https://hideandhunt-default-rtdb.firebaseio.com/", // <--- Here is your Database URL!
+        databaseURL: "https://hideandhunt-default-rtdb.firebaseio.com/", 
         projectId: "hideandhunt",
         storageBucket: "hideandhunt.firebasestorage.app",
         messagingSenderId: "613687870413",
@@ -550,10 +550,13 @@
         });
     }
 
+    // FIX 3: Setup connection clean up (which is disabled later during active gameplay)
     function setupPlayerDB() {
         try {
             let pRef = roomRef.child('players/' + myId);
             pRef.set({ name: myName, role: myRole, ready: false, hp: 100, connected: true });
+            
+            // Clean up if we drop while sitting in the Lobby
             pRef.onDisconnect().remove();
             if(isHost) {
                 roomRef.child('gameState').onDisconnect().set('finished'); 
@@ -635,6 +638,7 @@
                 }
             }
 
+            // FIX 2: Removed forced server crash on backgrounding
             if(playerCount < 2) {
                 document.getElementById('row-p2').style.opacity = '0.5';
                 document.getElementById('name-p2').innerText = "Waiting for Player 2...";
@@ -642,9 +646,7 @@
                 document.getElementById('ready-p2').className = 'status-badge'; document.getElementById('ready-p2').innerText = "NOT READY";
                 allReady = false;
                 
-                if (isHost && (gameState === 'playing' || gameState === 'hiding' || gameState === 'countdown')) {
-                    roomRef.update({ gameState: 'finished', winner: 'Opponent Disconnected' });
-                }
+                // Allow the other player to temporarily drop connection without ending the game
             }
 
             if (isHost && gameState === 'playing') {
@@ -664,6 +666,18 @@
 
         roomRef.child('gameState').on('value', s => {
             gameState = s.val();
+
+            // FIX 1: If the game has started, cancel the auto-destroy connection rules!
+            // This stops split-screen/background browsing from deleting the room.
+            if(gameState === 'countdown' || gameState === 'hiding' || gameState === 'playing') {
+                if (roomRef && myId) {
+                    roomRef.child('players/' + myId).onDisconnect().cancel();
+                    if(isHost) {
+                        roomRef.child('gameState').onDisconnect().cancel();
+                        roomRef.child('winner').onDisconnect().cancel();
+                    }
+                }
+            }
 
             if(gameState === 'lobby') { showScreen('screen-lobby'); }
             else if(gameState === 'countdown') { showScreen('screen-countdown'); resetPositions(); foxInventory = { gold: 5, bombs: 2 }; }
@@ -996,4 +1010,4 @@
     }
 </script>
 </body>
-                                                                                                                                        </html>
+                    </html>
