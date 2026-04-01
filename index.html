@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Hide & Hunt - Multiplayer</title>
     
-    <!-- Firebase SDKs: App and Database -->
+    <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
 
@@ -32,10 +32,8 @@
         #joystick-knob { position: absolute; top: 50%; left: 50%; width: 50px; height: 50px; background: #fff; border-radius: 50%; transform: translate(-50%, -50%); box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
         
         #right-controls { position: absolute; bottom: 60px; right: 25px; display: flex; flex-direction: column; gap: 15px; pointer-events: auto; align-items: flex-end;}
-        .action-btn { width: 65px; height: 65px; border-radius: 50%; border: 3px solid rgba(0,0,0,0.2); color: white; font-size: 26px; cursor: pointer; display: flex; justify-content: center; align-items: center; box-shadow: inset 0 -4px 0 rgba(0,0,0,0.2), 0 5px 10px rgba(0,0,0,0.3); display: none; }
+        .action-btn { width: 75px; height: 75px; border-radius: 50%; border: 3px solid rgba(0,0,0,0.2); color: white; font-size: 30px; cursor: pointer; display: flex; justify-content: center; align-items: center; box-shadow: inset 0 -4px 0 rgba(0,0,0,0.2), 0 5px 10px rgba(0,0,0,0.3); display: none; background-color: #e74c3c; }
         .action-btn:active { transform: scale(0.9) translateY(4px); box-shadow: inset 0 -2px 0 rgba(0,0,0,0.2), 0 2px 5px rgba(0,0,0,0.3); }
-        #btn-search { background-color: #3498db; }
-        #btn-shoot { background-color: #e74c3c; width: 75px; height: 75px; font-size: 30px; } 
         .aiming-mode { background-color: #c0392b !important; border-color: #f1c40f !important; box-shadow: 0 0 15px #e74c3c, inset 0 -4px 0 rgba(0,0,0,0.2) !important; transform: scale(1.1); }
 
         #alert-text { position: absolute; top: 35%; left: 50%; transform: translate(-50%, -50%) scale(1); color: #f1c40f; font-size: 40px; -webkit-text-stroke: 1.5px #000; text-shadow: 0px 5px 0 #000; opacity: 0; pointer-events: none; z-index: 50; width: 100%; font-weight: 900; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);}
@@ -56,11 +54,22 @@
         .player-row { display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.5); padding: 10px 15px; border-radius: 10px; border: 2px solid rgba(0,0,0,0.1); font-size: 16px; font-weight: 900; gap: 10px;}
         .player-name-box { flex: 1; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .player-status-box { flex-shrink: 0; display: flex; align-items: center; gap: 5px;}
-        
         .status-badge { padding: 5px 8px; border-radius: 8px; font-size: 12px; color: white; background: #e74c3c; border: 2px solid #c0392b; white-space: nowrap;}
         .status-ready { background: #2ecc71; border-color: #27ae60; }
         
         #big-countdown { font-size: 120px; color: #f1c40f; -webkit-text-stroke: 3px #000; text-shadow: 0 10px 0 #000; font-weight: 900; margin-top: 20px;}
+
+        /* KEYPAD UI */
+        .keypad-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 15px; }
+        .key-btn { background: #34495e; color: #fff; font-size: 24px; font-weight: bold; border: none; border-radius: 8px; padding: 15px; cursor: pointer; box-shadow: 0 4px 0 #2c3e50; transition: transform 0.1s; }
+        .key-btn:active { transform: translateY(4px); box-shadow: none; }
+        .key-btn-red { background: #e74c3c; box-shadow: 0 4px 0 #c0392b; }
+        .key-btn-green { background: #2ecc71; box-shadow: 0 4px 0 #27ae60; }
+        #pwd-display { background: #ecf0f1; color: #2c3e50; font-size: 30px; font-weight: 900; letter-spacing: 5px; padding: 10px; border-radius: 8px; border: 3px solid #bdc3c7; height: 60px; display: flex; justify-content: center; align-items: center; }
+        
+        /* PAPER UI */
+        .paper-note { background: #f1f2f6; color: #2f3542; padding: 30px; border-radius: 5px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); font-family: 'Courier New', Courier, monospace; font-size: 40px; font-weight: bold; transform: rotate(-3deg); border: 1px solid #ced6e0; position: relative;}
+        .paper-note::before { content: ''; position: absolute; top: -10px; left: 50%; transform: translateX(-50%); width: 40px; height: 15px; background: rgba(231, 76, 60, 0.7); display: block; }
     </style>
 </head>
 <body>
@@ -149,10 +158,46 @@
         <p style="margin-top: 20px; color: #bdc3c7;">Get ready...</p>
     </div>
 
-    <!-- 7. BLINDNESS/BLOCKER OVERLAY -->
+    <!-- 7. BLINDNESS/END/BLOCKER OVERLAY -->
     <div id="screen-blocker" class="full-screen bg-dark">
         <h2 style="color: #f1c40f; font-size: 40px;" id="blocker-title">WAITING...</h2>
         <p style="font-size: 20px; margin-top: 15px;" id="blocker-desc">The other player is preparing.</p>
+        <div id="end-buttons" style="display: none; margin-top: 30px; gap: 15px; flex-direction: column; width: 80%; max-width: 300px;">
+            <button class="main-btn btn-green" id="btn-play-again" style="display:none;">Play Again</button>
+            <button class="main-btn btn-red" onclick="window.location.reload()">Leave Game</button>
+        </div>
+    </div>
+
+    <!-- PAPER PASSWORD OVERLAY -->
+    <div id="screen-paper" class="full-screen bg-dark" style="z-index: 150;">
+        <div class="paper-note">
+            <div style="font-size: 16px; margin-bottom: 10px; color: #747d8c;">SAFE CODE:</div>
+            <div id="paper-pwd-text">1234</div>
+        </div>
+        <button class="main-btn btn-blue" style="margin-top: 40px; width: 200px;" onclick="closeOverlays()">Close</button>
+    </div>
+
+    <!-- KEYPAD OVERLAY -->
+    <div id="screen-keypad" class="full-screen bg-dark" style="z-index: 150;">
+        <div class="setup-box" style="background: #95a5a6; border-color: #7f8c8d;">
+            <h2 style="color: white;">UNLOCK SAFE</h2>
+            <div id="pwd-display">_ _ _ _</div>
+            <div class="keypad-grid">
+                <button class="key-btn" onclick="pressKey(1)">1</button>
+                <button class="key-btn" onclick="pressKey(2)">2</button>
+                <button class="key-btn" onclick="pressKey(3)">3</button>
+                <button class="key-btn" onclick="pressKey(4)">4</button>
+                <button class="key-btn" onclick="pressKey(5)">5</button>
+                <button class="key-btn" onclick="pressKey(6)">6</button>
+                <button class="key-btn" onclick="pressKey(7)">7</button>
+                <button class="key-btn" onclick="pressKey(8)">8</button>
+                <button class="key-btn" onclick="pressKey(9)">9</button>
+                <button class="key-btn key-btn-red" onclick="pressKey('C')">C</button>
+                <button class="key-btn" onclick="pressKey(0)">0</button>
+                <button class="key-btn key-btn-green" onclick="submitPassword()">OK</button>
+            </div>
+        </div>
+        <button class="main-btn btn-gray" style="margin-top: 20px; width: 200px;" onclick="closeOverlays()">Cancel</button>
     </div>
 
     <!-- 8. GAME LAYER -->
@@ -170,7 +215,7 @@
         </div>
         <div id="joystick-zone"><div id="joystick-knob"></div></div>
         <div id="right-controls">
-            <button class="action-btn" id="btn-search">🔎</button>
+            <!-- Panda and Fox both use shoot mechanics now! -->
             <button class="action-btn" id="btn-shoot">🔫</button>
         </div>
         <div id="alert-text">Nothing here...</div>
@@ -226,7 +271,12 @@
     
     let foxInventory = { gold: 5, bombs: 2 };
     let placingItem = 'gold'; 
-    let pandaHasPassword = false;
+    
+    // Keypad Logic Variables
+    let safePassword = "0000";
+    let enteredPwd = "";
+    let safeUnlocked = false;
+
     let mapItems = {}; 
     let passwordObjIndex = -1;
     let safeObjIndex = -1;
@@ -273,14 +323,6 @@
     for(let i=0; i<5; i++) audioPool.push(shootAudio.cloneNode());
     window.playShootSound = function() { try { window.audioIndex = window.audioIndex || 0; audioPool[window.audioIndex].volume = 0.5; audioPool[window.audioIndex].currentTime = 0; audioPool[window.audioIndex].play().catch(()=>{}); window.audioIndex = (window.audioIndex + 1) % audioPool.length; } catch(e) {} };
 
-    for (let key in assetList) {
-        let img = new Image(); 
-        let isLoaded = false;
-        const markLoaded = () => { if(!isLoaded) { isLoaded = true; assetCheck(); } };
-        img.onload = markLoaded; img.onerror = markLoaded; img.src = assetList[key];
-        if(img.complete) markLoaded(); images[key] = img;
-    }
-
     const TILE_SIZE = 80; 
     const gridCanvas = document.createElement('canvas'); gridCanvas.width = TILE_SIZE * 2; gridCanvas.height = TILE_SIZE * 2;
     const gctx = gridCanvas.getContext('2d');
@@ -289,7 +331,7 @@
 
     const MAP_SIZE = 22; const MAP_PIXEL_SIZE = MAP_SIZE * TILE_SIZE;
     let camera = { x: 0, y: 0, shakeTime: 0, shakeIntensity: 0 }; 
-    const explosions = []; const radarPings = []; const renderQueue = []; 
+    const explosions = []; const renderQueue = []; 
     let worldObjects = [];
     const solidCover = ['tree', 'wall', 'fence', 'pillar', 'well', 'statue', 'vending', 'tent', 'sign', 'cart', 'stall'];
     const destructibles = ['safe', 'barrel', 'crate', 'sack', 'log'];
@@ -299,7 +341,7 @@
     // 4. INPUT CONTROLS
     // ==========================================
     const input = { x: 0, y: 0 }; const keys = {};
-    window.addEventListener('keydown', (e) => { keys[e.code] = true; if(e.code === 'Space') handleShoot(); if(e.code === 'Enter' || e.code === 'KeyE') handleSearch(); });
+    window.addEventListener('keydown', (e) => { keys[e.code] = true; if(e.code === 'Space') handleShoot(); });
     window.addEventListener('keyup', (e) => keys[e.code] = false);
 
     const joystickZone = document.getElementById('joystick-zone'); const joystickKnob = document.getElementById('joystick-knob');
@@ -438,6 +480,12 @@
 
     function generateMap() {
         worldObjects = []; mapSeed = window.dbMapSeed || 12345;
+        
+        // Use seed to determine safe password for both players identically
+        let spRand = randomSeed();
+        safePassword = Math.floor(spRand * 9000 + 1000).toString();
+        safeUnlocked = false;
+
         let candidateContainers = [];
         for (let r = 0; r < MAP_SIZE; r++) {
             for (let c = 0; c < MAP_SIZE; c++) {
@@ -460,7 +508,6 @@
     // 6. LOBBY & NETWORKING FLOW
     // ==========================================
     
-    // UI Event Listeners for Nav
     document.getElementById('btn-submit-name').onclick = () => {
         let inputVal = document.getElementById('input-name').value.trim();
         if(inputVal.length < 1) inputVal = "Player" + Math.floor(Math.random()*99);
@@ -503,16 +550,12 @@
         
         if(!inputId || !inputPass) { alert("Please enter both Room ID and Password!"); return; }
         
-        // UI Feedback during server check
         let btn = document.getElementById('btn-submit-join');
         let oldText = btn.innerText;
         btn.innerText = "Checking Server...";
-        btn.style.opacity = "0.7";
-        btn.style.pointerEvents = "none";
+        btn.style.opacity = "0.7"; btn.style.pointerEvents = "none";
         
         let tempRef = db.ref('rooms/' + inputId);
-        
-        // Timeout catch if database is unresponsive
         let timeout = setTimeout(() => {
             btn.innerText = oldText; btn.style.opacity = "1"; btn.style.pointerEvents = "auto";
             alert("Server timeout. Please check your internet connection.");
@@ -527,7 +570,6 @@
             if(data.password !== inputPass) { alert("Incorrect Password!"); return; }
             if(data.players && Object.keys(data.players).length >= 2) { alert("Room is already full!"); return; }
             
-            // Successfully connected to room!
             roomId = inputId;
             roomPassword = inputPass;
             roomRef = tempRef;
@@ -535,9 +577,9 @@
             myRole = 'Panda';
             
             document.getElementById('display-room-id').innerText = roomId;
-            document.getElementById('display-room-pass').innerText = "****"; // Hide password for joiner
-            document.getElementById('btn-swap-roles').style.display = 'none'; // Lock swap for joiner
-            document.getElementById('btn-copy-room').style.display = 'none'; // Lock copy for joiner
+            document.getElementById('display-room-pass').innerText = "****"; 
+            document.getElementById('btn-swap-roles').style.display = 'none'; 
+            document.getElementById('btn-copy-room').style.display = 'none'; 
             
             setupPlayerDB();
             showScreen('screen-lobby');
@@ -545,18 +587,14 @@
         }).catch(e => {
             clearTimeout(timeout);
             btn.innerText = oldText; btn.style.opacity = "1"; btn.style.pointerEvents = "auto";
-            console.error(e); 
             alert("Network error. Please try again.");
         });
     }
 
-    // FIX 3: Setup connection clean up (which is disabled later during active gameplay)
     function setupPlayerDB() {
         try {
             let pRef = roomRef.child('players/' + myId);
             pRef.set({ name: myName, role: myRole, ready: false, hp: 100, connected: true });
-            
-            // Clean up if we drop while sitting in the Lobby
             pRef.onDisconnect().remove();
             if(isHost) {
                 roomRef.child('gameState').onDisconnect().set('finished'); 
@@ -587,6 +625,24 @@
         let newRemoteRole = newMyRole === 'Fox' ? 'Panda' : 'Fox';
         roomRef.child('players/'+myId+'/role').set(newMyRole); roomRef.child('players/'+myId+'/ready').set(false);
         roomRef.child('players/'+remoteId+'/role').set(newRemoteRole); roomRef.child('players/'+remoteId+'/ready').set(false);
+    };
+
+    // PLAY AGAIN FEATURE
+    document.getElementById('btn-play-again').onclick = () => {
+        if(!isHost) return;
+        roomRef.update({ 
+            gameState: 'lobby', 
+            winner: null, 
+            items: null,
+            events: null,
+            safeUnlocked: null,
+            stats: { goldFound: 0 },
+            mapSeed: Math.floor(Math.random() * 99999) 
+        });
+        roomRef.child('players').once('value', snap => {
+            let pData = snap.val();
+            for(let key in pData) { roomRef.child(`players/${key}`).update({ ready: false, hp: 100 }); }
+        });
     };
 
     function setupRoomListeners() {
@@ -638,15 +694,12 @@
                 }
             }
 
-            // FIX 2: Removed forced server crash on backgrounding
             if(playerCount < 2) {
                 document.getElementById('row-p2').style.opacity = '0.5';
                 document.getElementById('name-p2').innerText = "Waiting for Player 2...";
                 document.getElementById('role-p2').innerText = "--";
                 document.getElementById('ready-p2').className = 'status-badge'; document.getElementById('ready-p2').innerText = "NOT READY";
                 allReady = false;
-                
-                // Allow the other player to temporarily drop connection without ending the game
             }
 
             if (isHost && gameState === 'playing') {
@@ -667,26 +720,25 @@
         roomRef.child('gameState').on('value', s => {
             gameState = s.val();
 
-            // FIX 1: If the game has started, cancel the auto-destroy connection rules!
-            // This stops split-screen/background browsing from deleting the room.
             if(gameState === 'countdown' || gameState === 'hiding' || gameState === 'playing') {
                 if (roomRef && myId) {
                     roomRef.child('players/' + myId).onDisconnect().cancel();
-                    if(isHost) {
-                        roomRef.child('gameState').onDisconnect().cancel();
-                        roomRef.child('winner').onDisconnect().cancel();
-                    }
+                    if(isHost) { roomRef.child('gameState').onDisconnect().cancel(); roomRef.child('winner').onDisconnect().cancel(); }
                 }
             }
 
-            if(gameState === 'lobby') { showScreen('screen-lobby'); }
+            if(gameState === 'lobby') { 
+                document.getElementById('end-buttons').style.display = 'none';
+                amIReady = false;
+                closeOverlays();
+                showScreen('screen-lobby'); 
+            }
             else if(gameState === 'countdown') { showScreen('screen-countdown'); resetPositions(); foxInventory = { gold: 5, bombs: 2 }; }
             else if(gameState === 'hiding') {
                 showScreen('ui-layer');
-                document.getElementById('btn-search').style.display = 'none';
+                document.getElementById('btn-shoot').style.display = myRole === 'Fox' ? 'flex' : 'none';
                 if(myRole === 'Fox') {
                     document.getElementById('btn-toggle-item').style.display = 'flex';
-                    document.getElementById('btn-shoot').style.display = 'flex';
                     document.getElementById('btn-toggle-item').innerHTML = "🟡 Place: GOLD (5)";
                     placingItem = 'gold'; document.getElementById('btn-toggle-item').style.background = "#f1c40f";
                     showAlert("HIDE YOUR ITEMS!", "#f1c40f");
@@ -699,26 +751,39 @@
             else if(gameState === 'playing') {
                 showScreen('ui-layer');
                 document.getElementById('btn-toggle-item').style.display = 'none';
+                // Both players use the Shoot button now!
+                document.getElementById('btn-shoot').style.display = 'flex'; 
+
                 if(myRole === 'Fox') {
-                    document.getElementById('btn-shoot').style.display = 'flex';
-                    document.getElementById('btn-search').style.display = 'none';
                     document.getElementById('top-gold').style.display = 'none';
                     showAlert("HUNT THE PANDA!", "#e74c3c");
                 } else {
-                    document.getElementById('btn-shoot').style.display = 'none';
-                    document.getElementById('btn-search').style.display = 'flex';
                     document.getElementById('top-gold').style.display = 'block';
                     showAlert("FIND ALL 5 GOLD!", "#f1c40f");
                 }
             }
             else if(gameState === 'finished') {
                 showScreen('screen-blocker');
+                document.getElementById('end-buttons').style.display = 'flex';
+                if(isHost) {
+                    document.getElementById('btn-play-again').style.display = 'block';
+                    document.getElementById('blocker-desc').innerText = "You can restart the room.";
+                } else {
+                    document.getElementById('btn-play-again').style.display = 'none';
+                    document.getElementById('blocker-desc').innerText = "Waiting for Host to play again...";
+                }
                 roomRef.child('winner').once('value', wSnap => {
                     let winner = wSnap.val() || "UNKNOWN";
                     document.getElementById('blocker-title').innerText = `${winner.toUpperCase()} WINS!`;
-                    document.getElementById('blocker-desc').innerText = "Returning to menu shortly...";
                 });
-                setTimeout(() => window.location.reload(), 5000);
+            }
+        });
+
+        // Listen for safe unlock changes globally
+        roomRef.child('safeUnlocked').on('value', s => {
+            if(s.val() === true) {
+                safeUnlocked = true;
+                if(worldObjects[safeObjIndex]) worldObjects[safeObjIndex].type = 'crate';
             }
         });
 
@@ -735,7 +800,11 @@
         });
         roomRef.child('events').on('child_added', s => {
             let ev = s.val();
-            if(ev.type === 'shoot') { if(window.playShootSound) window.playShootSound(); explosions.push({ x: ev.x, y: ev.y, radius: 10, maxRadius: 40, life: 1.0 }); camera.shakeTime = 10; camera.shakeIntensity = 15; }
+            if(ev.type === 'shoot') { 
+                if(window.playShootSound) window.playShootSound(); 
+                explosions.push({ x: ev.x, y: ev.y, radius: 10, maxRadius: 40, life: 1.0 }); 
+                camera.shakeTime = 10; camera.shakeIntensity = 15; 
+            }
             s.ref.remove(); 
         });
         
@@ -805,6 +874,48 @@
         }
     }
 
+    // -- UI KEYPAD & PASSWORD LOGIC --
+    function closeOverlays() {
+        document.getElementById('screen-paper').style.display = 'none';
+        document.getElementById('screen-keypad').style.display = 'none';
+    }
+
+    function showPaper() {
+        document.getElementById('paper-pwd-text').innerText = safePassword;
+        document.getElementById('screen-paper').style.display = 'flex';
+    }
+
+    function showKeypad() {
+        enteredPwd = "";
+        updatePwdDisplay();
+        document.getElementById('screen-keypad').style.display = 'flex';
+    }
+
+    function pressKey(k) {
+        if(k === 'C') enteredPwd = "";
+        else if (enteredPwd.length < 4) enteredPwd += k.toString();
+        updatePwdDisplay();
+    }
+
+    function updatePwdDisplay() {
+        let disp = enteredPwd.padEnd(4, "_").split("").join(" ");
+        document.getElementById('pwd-display').innerText = disp;
+    }
+
+    function submitPassword() {
+        if(enteredPwd === safePassword) {
+            closeOverlays();
+            showAlert("💉 HEALTH +30%!", "#2ecc71");
+            localPlayer.hp = Math.min(100, localPlayer.hp + 30);
+            roomRef.child('players/' + myId).update({ hp: localPlayer.hp });
+            roomRef.child('safeUnlocked').set(true); 
+        } else {
+            showAlert("WRONG CODE!", "#e74c3c");
+            enteredPwd = "";
+            updatePwdDisplay();
+        }
+    }
+
     document.getElementById('btn-toggle-item').addEventListener('pointerdown', (e) => {
         e.preventDefault(); placingItem = placingItem === 'gold' ? 'bomb' : 'gold';
         let btn = document.getElementById('btn-toggle-item');
@@ -813,92 +924,129 @@
     });
 
     let lastShootTime = 0;
+    
+    // THE NEW UNIVERSAL SHOOT LOGIC FOR BOTH PANDA AND FOX
     function handleShoot() {
         if(localPlayer.isDead || !myRole) return;
         const btn = document.getElementById('btn-shoot');
+        
+        // Aim Toggle
         if (!localPlayer.isAiming) { localPlayer.isAiming = true; btn.classList.add("aiming-mode"); return; } 
         if (Date.now() - lastShootTime < 500) return; lastShootTime = Date.now();
         
         localPlayer.isAiming = false; btn.classList.remove("aiming-mode");
         
         let gunX = localPlayer.x + (localPlayer.facingRight ? 30 : -30); let gunY = localPlayer.y + 10;
-        let hitX = gunX; let hitY = gunY; let hitObjIndex = -1; let hitPanda = false;
+        let hitX = gunX; let hitY = gunY; let hitObjIndex = -1; let hitOpponent = false;
 
+        // Raycast Calculation
         for(let i=0; i<200; i++) { 
             hitX += localPlayer.aimDir.x * 5; hitY += localPlayer.aimDir.y * 5; 
             if (hitX < 0 || hitX > MAP_PIXEL_SIZE || hitY < 0 || hitY > MAP_PIXEL_SIZE) break;
-            if (gameState === 'playing' && myRole === 'Fox' && remoteId) {
-                if (hitX > remotePlayer.x - 30 && hitX < remotePlayer.x + 30 && hitY > remotePlayer.y - 20 && hitY < remotePlayer.y + 40) { hitPanda = true; break; }
+            
+            if (gameState === 'playing' && remoteId) {
+                if (hitX > remotePlayer.x - 30 && hitX < remotePlayer.x + 30 && hitY > remotePlayer.y - 20 && hitY < remotePlayer.y + 40) { 
+                    hitOpponent = true; break; 
+                }
             }
             let collided = false;
             for (let j=0; j < worldObjects.length; j++) {
                 let obj = worldObjects[j];
-                if ((obj.isSolid || obj.isHidingSpot) && hitX > obj.x && hitX < obj.x + obj.size && hitY > obj.y + 10 && hitY < obj.y + obj.size) { hitObjIndex = j; collided = true; break; }
+                if ((obj.isSolid || obj.isHidingSpot) && hitX > obj.x && hitX < obj.x + obj.size && hitY > obj.y + 10 && hitY < obj.y + obj.size) { 
+                    hitObjIndex = j; collided = true; break; 
+                }
             }
             if (collided) break; 
         }
 
+        // Trigger visual/sound sync
         roomRef.child('events').push({ type: 'shoot', x: hitX, y: hitY });
+        if(window.playShootSound) window.playShootSound();
 
-        if (gameState === 'hiding' && myRole === 'Fox') {
-            if(hitObjIndex !== -1 && !solidCover.includes(worldObjects[hitObjIndex].type) && !worldObjects[hitObjIndex].isHidingSpot) {
-                if(hitObjIndex === safeObjIndex || hitObjIndex === passwordObjIndex) { showAlert("CAN'T HIDE HERE!", "#e74c3c"); return; }
-                if(mapItems[hitObjIndex]) { showAlert("ALREADY OCCUPIED!", "#e67e22"); return; }
-                if(placingItem === 'gold' && foxInventory.gold > 0) { foxInventory.gold--; mapItems[hitObjIndex] = 'gold'; roomRef.child(`items/${hitObjIndex}`).set('gold'); showAlert("GOLD PLACED!", "#f1c40f"); } 
-                else if(placingItem === 'bomb' && foxInventory.bombs > 0) { foxInventory.bombs--; mapItems[hitObjIndex] = 'bomb'; roomRef.child(`items/${hitObjIndex}`).set('bomb'); showAlert("BOMB PLACED!", "#e74c3c"); } 
-                else { showAlert("OUT OF AMMO!", "#bdc3c7"); }
-                let btnSwap = document.getElementById('btn-toggle-item');
-                if(placingItem === 'gold') btnSwap.innerHTML = "🟡 Place: GOLD ("+foxInventory.gold+")"; else btnSwap.innerHTML = "💣 Place: BOMB ("+foxInventory.bombs+")";
+        // ======= FOX MECHANICS =======
+        if (myRole === 'Fox') {
+            if (gameState === 'hiding') {
+                if(hitObjIndex !== -1 && !solidCover.includes(worldObjects[hitObjIndex].type) && !worldObjects[hitObjIndex].isHidingSpot) {
+                    if(hitObjIndex === safeObjIndex || hitObjIndex === passwordObjIndex) { showAlert("CAN'T HIDE HERE!", "#e74c3c"); return; }
+                    if(mapItems[hitObjIndex]) { showAlert("ALREADY OCCUPIED!", "#e67e22"); return; }
+                    if(placingItem === 'gold' && foxInventory.gold > 0) { foxInventory.gold--; mapItems[hitObjIndex] = 'gold'; roomRef.child(`items/${hitObjIndex}`).set('gold'); showAlert("GOLD PLACED!", "#f1c40f"); } 
+                    else if(placingItem === 'bomb' && foxInventory.bombs > 0) { foxInventory.bombs--; mapItems[hitObjIndex] = 'bomb'; roomRef.child(`items/${hitObjIndex}`).set('bomb'); showAlert("BOMB PLACED!", "#e74c3c"); } 
+                    else { showAlert("OUT OF AMMO!", "#bdc3c7"); }
+                    let btnSwap = document.getElementById('btn-toggle-item');
+                    if(placingItem === 'gold') btnSwap.innerHTML = "🟡 Place: GOLD ("+foxInventory.gold+")"; else btnSwap.innerHTML = "💣 Place: BOMB ("+foxInventory.bombs+")";
+                }
+            } 
+            else if (gameState === 'playing') {
+                if(hitOpponent && remoteId) {
+                    let dist = Math.sqrt(Math.pow(localPlayer.x - remotePlayer.x, 2) + Math.pow(localPlayer.y - remotePlayer.y, 2));
+                    // Check if Fox is reasonably close to drop 10% HP
+                    if(dist < 400) { 
+                        showAlert("PANDA HIT!", "#2ecc71");
+                        roomRef.child('players/' + remoteId).update({ hp: Math.max(0, remotePlayer.hp - 10) });
+                        
+                        // FOX COMBAT BALANCE: Instantly teleport back to the start!
+                        localPlayer.x = (MAP_SIZE - 4) * TILE_SIZE; 
+                        localPlayer.y = (MAP_SIZE - 4) * TILE_SIZE;
+                        roomRef.child('players/' + myId).update({ x: localPlayer.x, y: localPlayer.y });
+                    } else { showAlert("TOO FAR TO DAMAGE!", "#e74c3c"); }
+                }
             }
         } 
-        else if (gameState === 'playing' && myRole === 'Fox') {
-            if(hitPanda && remoteId) {
-                let dist = Math.sqrt(Math.pow(localPlayer.x - remotePlayer.x, 2) + Math.pow(localPlayer.y - remotePlayer.y, 2));
-                if(dist < 320) { 
-                    showAlert("PANDA HIT!", "#2ecc71");
-                    roomRef.child('players/' + remoteId).update({ hp: Math.max(0, remotePlayer.hp - 10) });
-                    localPlayer.x = (MAP_SIZE - 4) * TILE_SIZE; localPlayer.y = (MAP_SIZE - 4) * TILE_SIZE;
-                    roomRef.child('players/' + myId).update({ x: localPlayer.x, y: localPlayer.y });
-                } else { showAlert("TOO FAR!", "#e74c3c"); }
-            }
-        }
-    }
-
-    function handleSearch() {
-        if(localPlayer.isDead || myRole !== 'Panda' || gameState !== 'playing') return;
-        radarPings.push({ x: localPlayer.x, y: localPlayer.y, radius: 0, opacity: 1 });
-        let foundSomething = false;
         
-        for (let i=0; i<worldObjects.length; i++) {
-            let obj = worldObjects[i];
-            let dist = Math.sqrt(Math.pow((obj.x + obj.size/2) - localPlayer.x, 2) + Math.pow((obj.y + obj.size/2) - localPlayer.y, 2));
-            if (dist < TILE_SIZE * 2) {
-                if(i === passwordObjIndex && !pandaHasPassword) { pandaHasPassword = true; showAlert("🔑 FOUND PASSWORD!", "#3498db"); foundSomething = true; }
-                else if(i === safeObjIndex) {
-                    if(pandaHasPassword) { localPlayer.hp = Math.min(100, localPlayer.hp + 30); roomRef.child('players/' + myId).update({ hp: localPlayer.hp }); showAlert("💉 HEALTH +30%!", "#2ecc71"); worldObjects[i].type = 'crate'; } 
-                    else { showAlert("LOCKED! NEED PASSWORD", "#e74c3c"); }
-                    foundSomething = true;
+        // ======= PANDA MECHANICS =======
+        else if (myRole === 'Panda' && gameState === 'playing') {
+            
+            // Panda shot the Fox
+            if(hitOpponent) {
+                showAlert("You can't shoot Fox! It doesn't effect him.", "#e74c3c");
+                return;
+            }
+            
+            // Panda shot an Object
+            if(hitObjIndex !== -1) {
+                let obj = worldObjects[hitObjIndex];
+                let dist = Math.sqrt(Math.pow(localPlayer.x - obj.x, 2) + Math.pow(localPlayer.y - obj.y, 2));
+                
+                if (dist > 400) {
+                    showAlert("TOO FAR TO INSPECT!", "#bdc3c7");
+                    return;
                 }
-                else if(mapItems[i]) {
-                    if(mapItems[i] === 'gold') { 
-                        delete mapItems[i]; showAlert("🟡 GOLD FOUND!", "#f1c40f"); 
-                        roomRef.child('stats/goldFound').transaction(c => (c || 0) + 1); 
-                        roomRef.child(`items/${i}`).remove(); 
-                    } 
-                    else if (mapItems[i] === 'bomb') { 
-                        delete mapItems[i]; showAlert("💥 BOMB HIT!", "#e74c3c"); 
-                        localPlayer.hp -= 25; roomRef.child('players/' + myId).update({ hp: localPlayer.hp }); 
-                        roomRef.child('events').push({ type: 'shoot', x: obj.x+40, y: obj.y+40 }); 
-                        roomRef.child(`items/${i}`).remove(); 
+
+                if(hitObjIndex === passwordObjIndex) { 
+                    showPaper();
+                    showAlert("🔑 FOUND PASSWORD!", "#3498db");
+                }
+                else if(hitObjIndex === safeObjIndex) {
+                    if(safeUnlocked) {
+                        showAlert("ALREADY EMPTY!", "#bdc3c7");
+                    } else {
+                        showKeypad();
                     }
-                    foundSomething = true;
                 }
+                else if(mapItems[hitObjIndex]) {
+                    if(mapItems[hitObjIndex] === 'gold') { 
+                        delete mapItems[hitObjIndex]; 
+                        showAlert("🟡 GOLD FOUND!", "#f1c40f"); 
+                        roomRef.child('stats/goldFound').transaction(c => (c || 0) + 1); 
+                        roomRef.child(`items/${hitObjIndex}`).remove(); 
+                    } 
+                    else if (mapItems[hitObjIndex] === 'bomb') { 
+                        delete mapItems[hitObjIndex]; 
+                        showAlert("💥 BOMB HIT!", "#e74c3c"); 
+                        localPlayer.hp -= 25; 
+                        roomRef.child('players/' + myId).update({ hp: localPlayer.hp }); 
+                        roomRef.child('events').push({ type: 'shoot', x: obj.x+40, y: obj.y+40 }); 
+                        roomRef.child(`items/${hitObjIndex}`).remove(); 
+                    }
+                } else {
+                    showAlert("NOTHING HERE...", "#ecf0f1");
+                }
+            } else {
+                showAlert("NOTHING HERE...", "#ecf0f1");
             }
         }
-        if (!foundSomething) showAlert("NOTHING HERE...", "#ecf0f1");
     }
 
-    document.getElementById('btn-search').addEventListener('pointerdown', (e) => { e.preventDefault(); handleSearch(); });
     document.getElementById('btn-shoot').addEventListener('pointerdown', (e) => { e.preventDefault(); handleShoot(); });
 
     // ==========================================
@@ -974,11 +1122,6 @@
                 }
             }
 
-            for(let i = radarPings.length - 1; i >= 0; i--) {
-                let p = radarPings[i]; ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2); ctx.lineWidth = 4; ctx.strokeStyle = `rgba(255, 255, 255, ${p.opacity})`; ctx.stroke();
-                p.radius += 600 * dt; p.opacity -= 1.2 * dt; if(p.opacity <= 0) radarPings.splice(i, 1);
-            }
-
             const drawAimLine = (p) => {
                 if (p.isAiming && !p.isDead) {
                     let gunX = p.x + (p.facingRight ? 30 : -30); let gunY = p.y + 10;
@@ -986,7 +1129,7 @@
                     for(let i=0; i<200; i++) { 
                         lX += p.aimDir.x * 5; lY += p.aimDir.y * 5; let hit = false;
                         if (lX < 0 || lX > MAP_PIXEL_SIZE || lY < 0 || lY > MAP_PIXEL_SIZE) break;
-                        if (gameState === 'playing' && p.role === 'Fox' && !tP.isDead && lX > tP.x-30 && lX < tP.x+30 && lY > tP.y-20 && lY < tP.y+40) hit = true;
+                        if (gameState === 'playing' && !tP.isDead && lX > tP.x-30 && lX < tP.x+30 && lY > tP.y-20 && lY < tP.y+40) hit = true;
                         for (let j=0; j<worldObjects.length; j++) { let obj = worldObjects[j]; if ((obj.isSolid || obj.isHidingSpot) && lX > obj.x && lX < obj.x + obj.size && lY > obj.y+10 && lY < obj.y + obj.size) { hit = true; break; } }
                         if (hit) break; 
                     }
@@ -1010,4 +1153,4 @@
     }
 </script>
 </body>
-                    </html>
+    </html>
