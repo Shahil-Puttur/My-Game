@@ -316,7 +316,7 @@
     // 2. GLOBALS & SCREEN MANAGEMENT
     // ==========================================
     window.isLoggedIn = false;
-    const GAME_VERSION = '2.3'; 
+    const GAME_VERSION = '2.4'; 
 
     // FULLSCREEN & DISPLAY FIXES
     function enterFullscreen() {
@@ -339,9 +339,12 @@
     document.addEventListener('webkitfullscreenchange', checkFullscreen);
     window.addEventListener('resize', () => { resize(); checkOrientation(); checkFullscreen(); });
 
+    // FIX: Only force landscape during active game phases (Countdown & Gameplay)
     function checkOrientation() {
         const warning = document.getElementById('orientation-warning');
-        if (window.isLoggedIn) {
+        const activeStates = ['countdown', 'hiding', 'playing', 'finished'];
+        
+        if (activeStates.includes(gameState)) {
             if (window.innerHeight > window.innerWidth) warning.style.display = 'flex';
             else warning.style.display = 'none';
         } else {
@@ -787,7 +790,7 @@
         enterFullscreen(); isHost = true; myRole = 'Panda'; roomId = "SOLO"; remoteId = null; 
         window.dbMapSeed = Math.floor(Math.random() * 99999); generateMap();
         startPreGameCountdown(() => {
-            gameState = 'playing'; showScreen('ui-layer'); resetPositions();
+            gameState = 'playing'; showScreen('ui-layer'); resetPositions(); checkOrientation();
             localPlayer.role = myRole; remotePlayer.isDead = true; remotePlayer.role = ""; 
             window.serverEndTime = getSyncTime() + 600000;
             updateUIButtons();
@@ -796,6 +799,9 @@
     };
 
     function startPreGameCountdown(callback) {
+        gameState = 'countdown';
+        checkOrientation(); // Trigger landscape warning now!
+        
         preGameCountdown = 15;
         const countdownEl = document.getElementById('big-countdown');
         const tipEl = document.getElementById('countdown-tip');
@@ -954,6 +960,8 @@
 
         roomRef.child('gameState').on('value', s => {
             gameState = s.val();
+            checkOrientation(); // Trigger landscape warning if active state
+            
             if(gameState === 'countdown' || gameState === 'hiding' || gameState === 'playing') { if (roomRef && myId) { roomRef.child('players/' + myId).onDisconnect().cancel(); if(isHost) { roomRef.child('gameState').onDisconnect().cancel(); roomRef.child('winner').onDisconnect().cancel(); } } }
             
             if(gameState === 'lobby') { amIReady = false; closeOverlays(); showScreen('screen-lobby'); }
