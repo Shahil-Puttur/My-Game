@@ -47,7 +47,7 @@
         #joystick-zone { position: absolute; bottom: 50px; left: 30px; width: 140px; height: 140px; background: rgba(0, 0, 0, 0.2); border-radius: 50%; pointer-events: auto; border: 4px solid rgba(255,255,255,0.3); backdrop-filter: blur(4px); }
         #joystick-knob { position: absolute; top: 50%; left: 50%; width: 60px; height: 60px; background: #fff; border-radius: 50%; transform: translate(-50%, -50%); box-shadow: 0 5px 15px rgba(0,0,0,0.4); }
         
-        #right-controls { position: absolute; bottom: 60px; right: 35px; display: flex; flex-direction: column; gap: 15px; pointer-events: auto; align-items: flex-end;}
+        #right-controls { position: absolute; bottom: 60px; right: 35px; display: flex; flex-direction: row-reverse; gap: 15px; pointer-events: auto; align-items: flex-end;}
         .action-btn { width: 85px; height: 85px; border-radius: 50%; border: 4px solid rgba(0,0,0,0.3); color: white; font-size: 35px; cursor: pointer; display: flex; justify-content: center; align-items: center; box-shadow: inset 0 -5px 0 rgba(0,0,0,0.3), 0 5px 15px rgba(0,0,0,0.4); display: none; background-color: #e74c3c; transition: all 0.1s;}
         .action-btn:active { transform: scale(0.9) translateY(4px); box-shadow: inset 0 -2px 0 rgba(0,0,0,0.2), 0 2px 5px rgba(0,0,0,0.3); }
         .aiming-mode { background-color: #c0392b !important; border-color: #f1c40f !important; box-shadow: 0 0 20px #e74c3c, inset 0 -5px 0 rgba(0,0,0,0.3) !important; transform: scale(1.1); }
@@ -84,7 +84,7 @@
         .key-btn:active { transform: translateY(5px); box-shadow: none; }
         .key-btn-red { background: #e74c3c; box-shadow: 0 5px 0 #c0392b; }
         .key-btn-green { background: #2ecc71; box-shadow: 0 5px 0 #27ae60; }
-        #pwd-display { background: #ecf0f1; color: #2c3e50; font-size: 32px; font-weight: 900; letter-spacing: 6px; padding: 10px; border-radius: 8px; border: 3px solid #bdc3c7; height: 55px; display: flex; justify-content: center; align-items: center; }
+        #pwd-display { background: #ecf0f1; color: #2c3e50; font-size: 32px; font-weight: 900; letter-spacing: 6px; padding: 10px; border-radius: 8px; border: 3px solid #bdc3c7; height: 55px; display: flex; justify-content: center; align-items: center; transition: all 0.2s;}
         
         .paper-note { background: #f1f2f6; color: #2f3542; padding: 35px; border-radius: 5px; box-shadow: 0 15px 30px rgba(0,0,0,0.6); font-family: 'Courier New', Courier, monospace; font-size: 45px; font-weight: bold; transform: rotate(-3deg); border: 1px solid #ced6e0; position: relative;}
         .paper-note::before { content: ''; position: absolute; top: -10px; left: 50%; transform: translateX(-50%); width: 50px; height: 18px; background: rgba(231, 76, 60, 0.8); display: block; }
@@ -243,7 +243,7 @@
 
     <!-- KEYPAD OVERLAY -->
     <div id="screen-keypad" class="full-screen bg-dark" style="z-index: 150;">
-        <div class="setup-box" style="background: #95a5a6; border-color: #7f8c8d;">
+        <div class="setup-box" style="background: #95a5a6; border-color: #7f8c8d; max-height: 95vh;">
             <h2 style="color: white; font-size: 28px;">UNLOCK SAFE</h2>
             <div id="pwd-display">_ _ _ _</div>
             <div class="keypad-grid">
@@ -260,8 +260,13 @@
                 <button class="key-btn" onclick="pressKey(0)">0</button>
                 <button class="key-btn key-btn-green" onclick="submitPassword()">OK</button>
             </div>
-            <button class="main-btn btn-gray" style="margin-top: 5px; width: 100%;" onclick="closeOverlays()">Cancel</button>
+            <button class="main-btn btn-gray" style="margin-top: 15px; width: 100%; font-size: 18px;" onclick="closeOverlays()">Cancel / Hide Keypad</button>
         </div>
+    </div>
+    
+    <!-- FREEZE TIMER OVERLAY -->
+    <div id="freeze-timer-overlay" style="display:none; position:absolute; top:30%; left:50%; transform:translate(-50%, -50%); color:#74b9ff; font-size:45px; font-weight:900; text-shadow:0 6px 0 #000, 0 0 20px #0984e3; text-align:center; z-index:40; pointer-events:none;">
+        ❄️ FROZEN! ❄️<br><span id="freeze-sec" style="font-size:75px; color:#fff;">10</span>s
     </div>
 
     <!-- 8. GAME LAYER -->
@@ -278,10 +283,14 @@
             <div class="hud-player" id="hud-p2">...</div>
         </div>
         <div id="joystick-zone"><div id="joystick-knob"></div></div>
+        
         <div id="right-controls">
             <!-- Action Button -->
             <button class="action-btn" id="btn-shoot">📦</button>
+            <!-- Panda Freezing Bomb Button -->
+            <button class="action-btn" id="btn-throw-freeze" style="background-color: #0984e3; border-color: #74b9ff; display: none;">🧨</button>
         </div>
+        
         <div id="alert-text">Nothing here...</div>
     </div>
 
@@ -316,7 +325,7 @@
     // 2. GLOBALS & SCREEN MANAGEMENT
     // ==========================================
     window.isLoggedIn = false;
-    const GAME_VERSION = '2.4'; 
+    const GAME_VERSION = '2.5'; 
 
     // FULLSCREEN & DISPLAY FIXES
     function enterFullscreen() {
@@ -339,7 +348,7 @@
     document.addEventListener('webkitfullscreenchange', checkFullscreen);
     window.addEventListener('resize', () => { resize(); checkOrientation(); checkFullscreen(); });
 
-    // FIX: Only force landscape during active game phases (Countdown & Gameplay)
+    // FIX: Only force landscape during active game phases
     function checkOrientation() {
         const warning = document.getElementById('orientation-warning');
         const activeStates = ['countdown', 'hiding', 'playing', 'finished'];
@@ -376,6 +385,10 @@
     let gameState = "menu"; 
     
     let foxInventory = { diamond: 5, bombs: 2 };
+    let pandaInventory = { freezeBombs: 0 };
+    let freezeTraps = {};
+    let foxFrozenUntil = 0;
+    
     let placingItem = 'diamond'; 
     let foxReloading = false; 
     
@@ -543,7 +556,6 @@
     const hidingSpots = ['bush', 'grass'];
     const decorativeSolids = ['shroom', 'fire'];
     
-    // TREES are now valid hiding containers too!
     const validHidingContainers = ['barrel', 'crate', 'sack', 'log', 'vending', 'tent', 'cart', 'stall', 'bush', 'grass', 'tree'];
     const noShadowObjects = ['tree', 'stall', 'tent', 'statue', 'pillar', 'sign'];
 
@@ -600,6 +612,14 @@
         update(dt) {
             if(this.isDead) return;
             if (this.isLocal) {
+                // Completely freeze Fox if trapped!
+                if (myRole === 'Fox' && Date.now() < foxFrozenUntil) {
+                    this.isMoving = false;
+                    this.frameX = 0;
+                    this.gameFrame = 0;
+                    return;
+                }
+                
                 let dx = 0; let dy = 0;
                 if (input.x !== 0 || input.y !== 0) { dx = input.x; dy = input.y; } 
                 else {
@@ -697,6 +717,7 @@
         }
         localPlayer.hp = 100; localPlayer.isDead = false;
         remotePlayer.hp = 100; remotePlayer.isDead = false;
+        foxFrozenUntil = 0;
     }
 
     function generateMap() {
@@ -738,18 +759,33 @@
         }
         
         if (candidateContainers.length > 1) {
-            safeObjIndex = candidateContainers[Math.floor(randomSeed() * candidateContainers.length)];
+            let available = [...candidateContainers];
+            
+            // Seeded Shuffle
+            for (let i = available.length - 1; i > 0; i--) {
+                let j = Math.floor(randomSeed() * (i + 1));
+                [available[i], available[j]] = [available[j], available[i]];
+            }
+            
+            // Safe Object
+            safeObjIndex = available.pop();
             worldObjects[safeObjIndex].type = 'safe'; worldObjects[safeObjIndex].isSolid = true;
-            do { passwordObjIndex = candidateContainers[Math.floor(randomSeed() * candidateContainers.length)]; } while (passwordObjIndex === safeObjIndex);
+            
+            // Password Object
+            passwordObjIndex = available.pop();
             
             // Spawn Trap / Penalty Boxes! ⚠️
-            let trapCount = 5;
+            let trapCount = Math.min(5, available.length);
             for(let i=0; i<trapCount; i++) {
-                let trapIdx = candidateContainers[Math.floor(randomSeed() * candidateContainers.length)];
-                if(trapIdx !== safeObjIndex && trapIdx !== passwordObjIndex && worldObjects[trapIdx].type !== 'trap') {
-                    worldObjects[trapIdx].type = 'trap';
-                    worldObjects[trapIdx].isSolid = true;
-                }
+                let trapIdx = available.pop();
+                worldObjects[trapIdx].type = 'trap';
+                worldObjects[trapIdx].isSolid = true;
+            }
+            
+            // Spawn Freeze Bombs for Panda 🧨
+            let freezeCount = Math.min(2, available.length);
+            for(let i=0; i<freezeCount; i++) {
+                worldObjects[available.pop()].hasFreezeBomb = true;
             }
         }
     }
@@ -864,7 +900,7 @@
 
     document.getElementById('btn-play-again').onclick = () => {
         if(!isHost) return;
-        roomRef.update({ gameState: 'lobby', winner: null, items: null, events: null, safeUnlocked: null, stats: { diamondFound: 0 }, mapSeed: Math.floor(Math.random() * 99999) });
+        roomRef.update({ gameState: 'lobby', winner: null, items: null, events: null, safeUnlocked: null, freezeTraps: null, stats: { diamondFound: 0 }, mapSeed: Math.floor(Math.random() * 99999) });
         roomRef.child('players').once('value', snap => { for(let key in snap.val()) roomRef.child(`players/${key}`).update({ ready: false, hp: 100 }); });
     };
 
@@ -893,11 +929,22 @@
         setTimeout(() => { this.innerText = o; this.style.background = "#95a5a6"; }, 1500);
     };
 
+    function updatePandaUI() {
+        const btnFreeze = document.getElementById('btn-throw-freeze');
+        if (myRole === 'Panda' && pandaInventory.freezeBombs > 0 && gameState === 'playing') {
+            btnFreeze.style.display = 'flex';
+            btnFreeze.innerHTML = `<span style="font-size:24px">🧨x${pandaInventory.freezeBombs}</span>`;
+        } else {
+            btnFreeze.style.display = 'none';
+        }
+    }
+
     function updateUIButtons() {
         const btnShoot = document.getElementById('btn-shoot');
         const btnItems = document.getElementById('btn-toggle-item');
         
         if (gameState === 'hiding') {
+            updatePandaUI();
             if (myRole === 'Fox') {
                 btnShoot.style.display = 'flex'; btnShoot.innerHTML = "📦";
                 btnItems.style.display = 'flex'; placingItem = 'diamond'; btnItems.innerHTML = "💎 Place: DIAMOND (5)"; btnItems.style.background = "#f1c40f";
@@ -913,6 +960,7 @@
         else if (gameState === 'playing') {
             btnShoot.style.display = 'flex';
             btnItems.style.display = 'none';
+            updatePandaUI();
             
             if (myRole === 'Fox') {
                 if (!foxReloading) btnShoot.innerHTML = "🔫"; 
@@ -927,7 +975,7 @@
     }
 
     function setupRoomListeners() {
-        roomRef.child('mapSeed').once('value', s => { window.dbMapSeed = s.val(); generateMap(); });
+        roomRef.child('mapSeed').once('value', s => { window.dbMapSeed = s.val(); generateMap(); pandaInventory.freezeBombs = 0; });
 
         roomRef.child('players').on('value', snap => {
             let data = snap.val(); if(!data) return;
@@ -984,6 +1032,7 @@
 
         roomRef.child('safeUnlocked').on('value', s => { if(s.val() === true) { safeUnlocked = true; if(worldObjects[safeObjIndex]) worldObjects[safeObjIndex].type = 'crate'; } });
         roomRef.child('items').on('value', s => { mapItems = s.val() || {}; });
+        roomRef.child('freezeTraps').on('value', s => { freezeTraps = s.val() || {}; });
         roomRef.child('timer').on('value', s => { window.serverEndTime = s.val(); });
         roomRef.child('stats').on('value', s => { 
             let stats = s.val(); 
@@ -1043,22 +1092,77 @@
         }
     }
 
-    function autoPlace(type) { for(let i=0; i<worldObjects.length; i++) { let obj = worldObjects[i]; if (validHidingContainers.includes(obj.type) && !mapItems[i] && i !== safeObjIndex && i !== passwordObjIndex && obj.type !== 'trap') { mapItems[i] = type; roomRef.child(`items/${i}`).set(type); return; } } }
+    function autoPlace(type) { for(let i=0; i<worldObjects.length; i++) { let obj = worldObjects[i]; if (validHidingContainers.includes(obj.type) && !mapItems[i] && i !== safeObjIndex && i !== passwordObjIndex && obj.type !== 'trap' && !obj.hasFreezeBomb) { mapItems[i] = type; roomRef.child(`items/${i}`).set(type); return; } } }
+    
     function closeOverlays() { document.getElementById('screen-paper').style.display = 'none'; document.getElementById('screen-keypad').style.display = 'none'; }
     function showPaper() { document.getElementById('paper-pwd-text').innerText = safePassword; document.getElementById('screen-paper').style.display = 'flex'; }
-    function showKeypad() { enteredPwd = ""; updatePwdDisplay(); document.getElementById('screen-keypad').style.display = 'flex'; }
+    function showKeypad() { 
+        enteredPwd = ""; 
+        let pwdDisp = document.getElementById('pwd-display');
+        pwdDisp.style.color = "#2c3e50";
+        pwdDisp.style.borderColor = "#bdc3c7";
+        pwdDisp.style.background = "#ecf0f1";
+        updatePwdDisplay(); 
+        document.getElementById('screen-keypad').style.display = 'flex'; 
+    }
     function pressKey(k) { if(k === 'C') enteredPwd = ""; else if (enteredPwd.length < 4) enteredPwd += k.toString(); updatePwdDisplay(); }
     function updatePwdDisplay() { document.getElementById('pwd-display').innerText = enteredPwd.padEnd(4, "_").split("").join(" "); }
 
     function submitPassword() {
-        if(enteredPwd === safePassword) { closeOverlays(); showAlert("💉 HEALTH +30%!", "#2ecc71"); if(roomId !== "SOLO") { roomRef.child('players/' + myId + '/hp').transaction(hp => Math.min(100, (hp||0) + 30)); roomRef.child('safeUnlocked').set(true); } else { localPlayer.hp += 30; safeUnlocked = true; } } 
-        else { showAlert("WRONG CODE!", "#e74c3c"); enteredPwd = ""; updatePwdDisplay(); }
+        if(enteredPwd === safePassword) { 
+            closeOverlays(); 
+            showAlert("💉 HEALTH +30%!", "#2ecc71"); 
+            if(roomId !== "SOLO") { 
+                roomRef.child('players/' + myId + '/hp').transaction(hp => Math.min(100, (hp||0) + 30)); 
+                roomRef.child('safeUnlocked').set(true); 
+            } else { 
+                localPlayer.hp += 30; 
+                safeUnlocked = true; 
+            } 
+        } 
+        else { 
+            // Flash red, stay open, allow retry!
+            let pwdDisp = document.getElementById('pwd-display');
+            pwdDisp.innerText = "WRONG!";
+            pwdDisp.style.color = "#e74c3c";
+            pwdDisp.style.borderColor = "#e74c3c";
+            pwdDisp.style.background = "#f2dede";
+            setTimeout(() => {
+                enteredPwd = "";
+                pwdDisp.style.color = "#2c3e50";
+                pwdDisp.style.borderColor = "#bdc3c7";
+                pwdDisp.style.background = "#ecf0f1";
+                updatePwdDisplay();
+            }, 1000);
+        }
     }
 
     document.getElementById('btn-toggle-item').addEventListener('pointerdown', (e) => {
         e.preventDefault(); placingItem = placingItem === 'diamond' ? 'bomb' : 'diamond'; let btn = document.getElementById('btn-toggle-item');
         if(placingItem === 'diamond') { btn.innerHTML = "💎 Place: DIAMOND ("+foxInventory.diamond+")"; btn.style.background = "#f1c40f"; btn.style.borderColor = "#e67e22"; }
         else { btn.innerHTML = "💣 Place: BOMB ("+foxInventory.bombs+")"; btn.style.background = "#e74c3c"; btn.style.borderColor = "#c0392b"; }
+    });
+
+    document.getElementById('btn-throw-freeze').addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        if (myRole !== 'Panda' || pandaInventory.freezeBombs <= 0) return;
+        
+        if(!localPlayer.isAiming) {
+            showAlert("AIM FIRST TO THROW!", "#f1c40f");
+            return;
+        }
+        let ray = performRaycast(localPlayer);
+        pandaInventory.freezeBombs--;
+        updatePandaUI();
+        
+        if(roomId !== "SOLO") {
+            roomRef.child('freezeTraps').push({ x: ray.hitX, y: ray.hitY, active: true });
+        } else {
+            freezeTraps["solo_" + Date.now()] = { x: ray.hitX, y: ray.hitY, active: true };
+        }
+        showAlert("FREEZE BOMB THROWN!", "#3498db");
+        localPlayer.isAiming = false;
+        document.getElementById('btn-shoot').classList.remove("aiming-mode");
     });
 
     function performRaycast(shooter) {
@@ -1110,10 +1214,13 @@
                 if(ray.hitTarget === 'object' && validHidingContainers.includes(worldObjects[ray.hitObjIndex].type) && worldObjects[ray.hitObjIndex].type !== 'trap') {
                     let hitObjIndex = ray.hitObjIndex;
                     if(hitObjIndex === safeObjIndex || hitObjIndex === passwordObjIndex) { showAlert("CAN'T HIDE HERE!", "#e74c3c"); return; }
+                    if(worldObjects[hitObjIndex].hasFreezeBomb) { showAlert("CAN'T HIDE HERE!", "#e74c3c"); return; }
                     if(mapItems[hitObjIndex]) { showAlert("ALREADY OCCUPIED!", "#e67e22"); return; }
+                    
                     if(placingItem === 'diamond' && foxInventory.diamond > 0) { foxInventory.diamond--; mapItems[hitObjIndex] = 'diamond'; roomRef.child(`items/${hitObjIndex}`).set('diamond'); showAlert("DIAMOND PLACED!", "#3498db"); } 
                     else if(placingItem === 'bomb' && foxInventory.bombs > 0) { foxInventory.bombs--; mapItems[hitObjIndex] = 'bomb'; roomRef.child(`items/${hitObjIndex}`).set('bomb'); showAlert("BOMB PLACED!", "#e74c3c"); } 
                     else { showAlert("OUT OF AMMO!", "#bdc3c7"); }
+                    
                     let b = document.getElementById('btn-toggle-item'); if(placingItem === 'diamond') b.innerHTML = "💎 Place: DIAMOND ("+foxInventory.diamond+")"; else b.innerHTML = "💣 Place: BOMB ("+foxInventory.bombs+")";
                 } else if(ray.hitTarget === 'object' && worldObjects[ray.hitObjIndex].type === 'trap') {
                     showAlert("CAN'T HIDE IN TRAP!", "#e74c3c");
@@ -1145,10 +1252,32 @@
                 else if(ray.hitObjIndex === safeObjIndex) { if(safeUnlocked) showAlert("ALREADY EMPTY!", "#bdc3c7"); else showKeypad(); }
                 else {
                     obj.hiddenUntil = Date.now() + 2000;
+                    let foundSomething = false;
+
+                    if (obj.hasFreezeBomb) {
+                        pandaInventory.freezeBombs++;
+                        showAlert("🧨 FREEZE BOMB FOUND!", "#3498db");
+                        obj.hasFreezeBomb = false;
+                        updatePandaUI();
+                        foundSomething = true;
+                    }
+
                     if(mapItems[ray.hitObjIndex]) {
-                        if(mapItems[ray.hitObjIndex] === 'diamond') { delete mapItems[ray.hitObjIndex]; showAlert("💎 DIAMOND FOUND!", "#3498db"); if(roomId !== "SOLO") { roomRef.child('stats/diamondFound').transaction(c => (c || 0) + 1); roomRef.child(`items/${ray.hitObjIndex}`).remove(); } } 
-                        else if (mapItems[ray.hitObjIndex] === 'bomb') { delete mapItems[ray.hitObjIndex]; showAlert("💥 BOMB HIT!", "#e74c3c"); if(roomId !== "SOLO") { roomRef.child('players/' + myId + '/hp').transaction(hp => Math.max(0, (hp || 100) - 25)); roomRef.child('events').push({ type: 'shoot', x: obj.x+40, y: obj.y+40, sender: myId }); roomRef.child(`items/${ray.hitObjIndex}`).remove(); } else { localPlayer.hp -= 25; } }
-                    } else { showAlert("NOTHING HERE...", "#ecf0f1"); }
+                        if(mapItems[ray.hitObjIndex] === 'diamond') { 
+                            delete mapItems[ray.hitObjIndex]; 
+                            showAlert("💎 DIAMOND FOUND!", "#3498db"); 
+                            if(roomId !== "SOLO") { roomRef.child('stats/diamondFound').transaction(c => (c || 0) + 1); roomRef.child(`items/${ray.hitObjIndex}`).remove(); } 
+                        } 
+                        else if (mapItems[ray.hitObjIndex] === 'bomb') { 
+                            delete mapItems[ray.hitObjIndex]; 
+                            showAlert("💥 BOMB HIT!", "#e74c3c"); 
+                            if(roomId !== "SOLO") { roomRef.child('players/' + myId + '/hp').transaction(hp => Math.max(0, (hp || 100) - 25)); roomRef.child('events').push({ type: 'shoot', x: obj.x+40, y: obj.y+40, sender: myId }); roomRef.child(`items/${ray.hitObjIndex}`).remove(); } 
+                            else { localPlayer.hp -= 25; } 
+                        }
+                        foundSomething = true;
+                    } 
+                    
+                    if (!foundSomething) { showAlert("NOTHING HERE...", "#ecf0f1"); }
                 }
             } else { 
                 showAlert("NOTHING HERE...", "#ecf0f1"); 
@@ -1184,6 +1313,43 @@
         let dt = (timestamp - lastTime) / 1000; if(dt > 0.05) dt = 0.05; lastTime = timestamp;
         ctx.fillStyle = '#6ab04c'; ctx.fillRect(0, 0, canvas.width, canvas.height);
         
+        // CHECK FOX FROZEN STATE
+        if (myRole === 'Fox' && gameState === 'playing' && !localPlayer.isDead) {
+            if (Date.now() < foxFrozenUntil) {
+                // Keep controls disabled while frozen
+                document.getElementById('freeze-timer-overlay').style.display = 'block';
+                document.getElementById('freeze-sec').innerText = Math.ceil((foxFrozenUntil - Date.now()) / 1000);
+                document.getElementById('right-controls').style.opacity = '0.4';
+                document.getElementById('right-controls').style.pointerEvents = 'none';
+                document.getElementById('joystick-zone').style.pointerEvents = 'none';
+            } else {
+                document.getElementById('freeze-timer-overlay').style.display = 'none';
+                document.getElementById('right-controls').style.opacity = '1';
+                document.getElementById('right-controls').style.pointerEvents = 'auto';
+                document.getElementById('joystick-zone').style.pointerEvents = 'auto';
+                
+                // Check if Fox touches any active freeze traps
+                for(let key in freezeTraps) {
+                    let ft = freezeTraps[key];
+                    if(ft.active) {
+                        let dist = Math.sqrt(Math.pow(localPlayer.x - ft.x, 2) + Math.pow(localPlayer.y - ft.y, 2));
+                        if(dist < 50) { 
+                            foxFrozenUntil = Date.now() + 10000;
+                            if(roomId !== "SOLO") roomRef.child('freezeTraps/' + key).remove();
+                            else delete freezeTraps[key];
+                            showAlert("❄️ FROZEN! ❄️", "#3498db");
+                            break; 
+                        }
+                    }
+                }
+            }
+        } else if (gameState === 'playing') {
+            document.getElementById('freeze-timer-overlay').style.display = 'none';
+            document.getElementById('right-controls').style.opacity = '1';
+            document.getElementById('right-controls').style.pointerEvents = 'auto';
+            document.getElementById('joystick-zone').style.pointerEvents = 'auto';
+        }
+        
         if(gameState === 'hiding' || gameState === 'playing') {
             localPlayer.update(dt); remotePlayer.update(dt);
             let tCamX = localPlayer.x - canvas.width / 2; let tCamY = localPlayer.y - canvas.height / 2;
@@ -1193,11 +1359,34 @@
             ctx.save(); ctx.translate(-Math.floor(camera.x), -Math.floor(camera.y));
             ctx.fillStyle = '#1e272e'; ctx.fillRect(-1000, -1000, MAP_PIXEL_SIZE+2000, 1000); ctx.fillRect(-1000, MAP_PIXEL_SIZE, MAP_PIXEL_SIZE+2000, 1000); ctx.fillRect(-1000, 0, 1000, MAP_PIXEL_SIZE); ctx.fillRect(MAP_PIXEL_SIZE, 0, 1000, MAP_PIXEL_SIZE);
 
-            // Extended Boundary Culling fix (Prevents tall trees from disappearing at edges)
+            // Extended Boundary Culling fix 
             let sL = camera.x - TILE_SIZE * 2; let sR = camera.x + canvas.width + TILE_SIZE * 2; 
             let sT = camera.y - TILE_SIZE * 3; let sB = camera.y + canvas.height + TILE_SIZE * 3;
 
             ctx.fillStyle = gridPattern; ctx.save(); ctx.translate(Math.floor(camera.x) - (Math.floor(camera.x) % (TILE_SIZE*2)), Math.floor(camera.y) - (Math.floor(camera.y) % (TILE_SIZE*2))); ctx.fillRect(0, 0, canvas.width + TILE_SIZE*4, canvas.height + TILE_SIZE*4); ctx.restore();
+
+            // RENDER ACTIVE FREEZE TRAPS
+            for(let key in freezeTraps) {
+                let ft = freezeTraps[key];
+                if(ft.active) {
+                    ctx.save();
+                    ctx.globalAlpha = 0.6;
+                    ctx.fillStyle = '#74b9ff';
+                    ctx.beginPath();
+                    ctx.arc(ft.x, ft.y, 45, 0, Math.PI*2);
+                    ctx.fill();
+                    ctx.strokeStyle = '#0984e3';
+                    ctx.lineWidth = 4;
+                    ctx.stroke();
+                    
+                    let pulse = (Math.sin(Date.now() / 150) + 1) * 5;
+                    ctx.beginPath();
+                    ctx.arc(ft.x, ft.y, 20 + pulse, 0, Math.PI*2);
+                    ctx.fillStyle = '#0984e3';
+                    ctx.fill();
+                    ctx.restore();
+                }
+            }
 
             renderQueue.length = 0; 
             if(!localPlayer.isDead) renderQueue.push({ type: 'player', y: localPlayer.y + (localPlayer.height*0.4), obj: localPlayer });
