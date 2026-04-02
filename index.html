@@ -87,16 +87,24 @@
         .paper-note { background: #f1f2f6; color: #2f3542; padding: 35px; border-radius: 5px; box-shadow: 0 15px 30px rgba(0,0,0,0.6); font-family: 'Courier New', Courier, monospace; font-size: 45px; font-weight: bold; transform: rotate(-3deg); border: 1px solid #ced6e0; position: relative;}
         .paper-note::before { content: ''; position: absolute; top: -10px; left: 50%; transform: translateX(-50%); width: 50px; height: 18px; background: rgba(231, 76, 60, 0.8); display: block; }
 
-        /* START SCREEN & MUSIC CONTROLS */
+        /* START SCREEN */
         #screen-start { background: linear-gradient(135deg, #6ab04c 0%, #487eb0 100%); }
         #start-logo { font-size: 65px; margin-bottom: 20px; animation: bounce 1s infinite alternate; }
         @keyframes bounce { from { transform: translateY(0); } to { transform: translateY(-12px); } }
         
-        #music-toggle { position: absolute; top: 15px; right: 15px; background: rgba(0,0,0,0.7); border: 3px solid #f1c40f; color: white; width: 55px; height: 55px; border-radius: 50%; font-size: 26px; cursor: pointer; display: flex; justify-content: center; align-items: center; z-index: 200; pointer-events: auto; box-shadow: 0 4px 10px rgba(0,0,0,0.4); }
-        #music-toggle.muted { opacity: 0.6; }
+        /* FULLSCREEN RE-ENTER BUTTON */
+        #btn-fullscreen {
+            display: none; position: fixed; top: 15px; right: 15px; background: rgba(52, 152, 219, 0.9);
+            color: white; border: 3px solid #2980b9; padding: 12px 20px; border-radius: 12px; font-size: 16px;
+            font-weight: bold; cursor: pointer; z-index: 9999; box-shadow: 0 4px 10px rgba(0,0,0,0.5); text-transform: uppercase;
+        }
+        #btn-fullscreen:active { transform: translateY(3px); box-shadow: none; }
     </style>
 </head>
 <body>
+
+    <!-- FULLSCREEN FALLBACK BUTTON -->
+    <button id="btn-fullscreen" onclick="enterFullscreen()">🔲 Fullscreen</button>
 
     <!-- START SCREEN -->
     <div id="screen-start" class="full-screen" style="display: flex;">
@@ -113,9 +121,6 @@
         <h2>ROTATE YOUR PHONE</h2>
         <p>This game must be played in Landscape Mode!</p>
     </div>
-
-    <!-- MUSIC TOGGLE BUTTON -->
-    <button id="music-toggle" style="display: none;">🔊</button>
 
     <!-- 1. LOADING SCREEN -->
     <div id="screen-loading" class="full-screen bg-grass" style="display: none;">
@@ -306,63 +311,32 @@
     });
 
     // ==========================================
-    // 2. GLOBALS, SCREENS & AUDIO
+    // 2. GLOBALS & SCREEN MANAGEMENT
     // ==========================================
     window.isLoggedIn = false;
-    const GAME_VERSION = '2.1'; // Update version to break cache
+    const GAME_VERSION = '2.2'; 
 
-    let bgMusic = null;
-    let buttonSound = null;
-    let isMuted = false;
-    let audioInitialized = false;
-
-    function initAudio() {
-        if (audioInitialized) return;
-        bgMusic = new Audio('bg1.mp3');
-        bgMusic.loop = true; bgMusic.volume = 0.4;
-        buttonSound = new Audio('button1.mp3');
-        buttonSound.volume = 0.6;
-        audioInitialized = true;
-    }
-
-    function playBGM() {
-        if (!audioInitialized) initAudio();
-        if (!isMuted && bgMusic) bgMusic.play().catch(e => console.log('BGM play blocked:', e));
-    }
-
-    function toggleMute() {
-        isMuted = !isMuted;
-        const toggleBtn = document.getElementById('music-toggle');
-        if (isMuted) {
-            if (bgMusic) bgMusic.pause();
-            toggleBtn.innerText = '🔇';
-            toggleBtn.classList.add('muted');
-        } else {
-            if (bgMusic) bgMusic.play().catch(()=>{});
-            toggleBtn.innerText = '🔊';
-            toggleBtn.classList.remove('muted');
-        }
-    }
-
-    function playButtonSound() {
-        if (!audioInitialized) initAudio();
-        if (!isMuted && buttonSound) {
-            const click = buttonSound.cloneNode(); click.volume = 0.6; click.play().catch(()=>{});
-        }
-    }
-
-    function addButtonSounds() {
-        const buttons = document.querySelectorAll('.main-btn, .key-btn, #btn-toggle-item, #music-toggle');
-        buttons.forEach(btn => {
-            btn.addEventListener('click', (e) => { if (btn.id !== 'btn-shoot') playButtonSound(); });
-        });
-    }
-
+    // FULLSCREEN & DISPLAY FIXES
     function enterFullscreen() {
         let elem = document.documentElement;
         if (elem.requestFullscreen) { elem.requestFullscreen().catch(()=>{}); }
         else if (elem.webkitRequestFullscreen) { elem.webkitRequestFullscreen().catch(()=>{}); }
+        document.getElementById('btn-fullscreen').style.display = 'none'; // Hide right after clicking
     }
+
+    // Auto-detect if browser drops out of fullscreen
+    function checkFullscreen() {
+        if (window.isLoggedIn) {
+            if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+                document.getElementById('btn-fullscreen').style.display = 'block';
+            } else {
+                document.getElementById('btn-fullscreen').style.display = 'none';
+            }
+        }
+    }
+    document.addEventListener('fullscreenchange', checkFullscreen);
+    document.addEventListener('webkitfullscreenchange', checkFullscreen);
+    window.addEventListener('resize', () => { resize(); checkOrientation(); checkFullscreen(); });
 
     function checkOrientation() {
         const warning = document.getElementById('orientation-warning');
@@ -373,7 +347,6 @@
             warning.style.display = 'none';
         }
     }
-    window.addEventListener('resize', () => { resize(); checkOrientation(); });
 
     function showScreen(screenId) {
         const screens = ['screen-start', 'screen-loading', 'screen-auth', 'screen-menu', 'screen-join', 'screen-lobby', 'screen-countdown', 'screen-blocker', 'ui-layer'];
@@ -384,9 +357,6 @@
         });
         if(screenId === 'ui-layer') {
             document.getElementById('ui-layer').style.display = 'block';
-            document.getElementById('music-toggle').style.display = 'flex';
-        } else {
-            document.getElementById('music-toggle').style.display = (screenId === 'screen-start') ? 'none' : 'none';
         }
     }
 
@@ -436,8 +406,6 @@
     const images = {}; let assetsLoaded = 0; let assetsFinished = false;
     
     const criticalAssets = { panda: 'panda.png', fox: 'fox.png', grass: 'Tall Grass Patch.png' };
-    
-    // Removed unstable 'props_spritesheet.png' assets
     const secondaryAssets = {
         log: 'Hollow Log.png', bush: 'Berry Bush.png', tree: 'Pine Tree.png', shroom: 'Giant Mushroom.png', 
         wall: 'Brick Wall Segment.png', fence: 'Wooden Fence.png', pillar: 'Stone Pillar.png', well: 'Water Well.png', 
@@ -446,12 +414,12 @@
         sign: 'Signpost.png', cart: 'Broken Cart.png', stall: 'Market Stall.png'
     };
 
-    const totalAssets = Object.keys(criticalAssets).length + Object.keys(secondaryAssets).length + 2; 
+    const totalAssets = Object.keys(criticalAssets).length + Object.keys(secondaryAssets).length + 1; // +1 for shoot.mp3
 
     document.getElementById('btn-start-game').addEventListener('click', () => {
-        initAudio(); playBGM(); playButtonSound();
         document.getElementById('screen-start').style.display = 'none';
         document.getElementById('screen-loading').style.display = 'flex';
+        enterFullscreen();
         loadCriticalAssets();
     });
 
@@ -481,7 +449,7 @@
             const markLoaded = () => { 
                 if(!isLoaded) { 
                     isLoaded = true; assetsLoaded++; updateLoadingBar();
-                    if (assetsLoaded >= totalAssets - 2) finalizeLoading();
+                    if (assetsLoaded >= totalAssets - 1) finalizeLoading();
                 } 
             };
             img.onload = markLoaded; img.onerror = markLoaded; 
@@ -489,9 +457,6 @@
             if(img.complete && img.naturalWidth > 0) markLoaded(); 
             images[key] = img;
         }
-        
-        if (bgMusic) { bgMusic.oncanplaythrough = () => { assetsLoaded++; updateLoadingBar(); }; bgMusic.onerror = () => { assetsLoaded++; updateLoadingBar(); }; bgMusic.load(); }
-        if (buttonSound) { buttonSound.oncanplaythrough = () => { assetsLoaded++; updateLoadingBar(); }; buttonSound.onerror = () => { assetsLoaded++; updateLoadingBar(); }; buttonSound.load(); }
     }
 
     function updateLoadingBar() {
@@ -517,11 +482,21 @@
         } else { showScreen('screen-auth'); }
     }
 
+    // Action/Shoot Sound Pool (Plays for BOTH roles)
     const audioPool = []; const shootAudio = new Audio(); let audioLoaded = false;
-    const markAudio = () => { if(!audioLoaded) { audioLoaded = true; assetsLoaded++; updateLoadingBar(); } };
+    const markAudio = () => { if(!audioLoaded) { audioLoaded = true; assetsLoaded++; updateLoadingBar(); if (assetsLoaded >= totalAssets) finalizeLoading(); } };
     shootAudio.oncanplaythrough = markAudio; shootAudio.onerror = markAudio; shootAudio.src = 'shoot.mp3?v=' + GAME_VERSION;
     for(let i=0; i<5; i++) audioPool.push(shootAudio.cloneNode());
-    window.playShootSound = function() { try { window.audioIndex = window.audioIndex || 0; audioPool[window.audioIndex].volume = 0.5; audioPool[window.audioIndex].currentTime = 0; audioPool[window.audioIndex].play().catch(()=>{}); window.audioIndex = (window.audioIndex + 1) % audioPool.length; } catch(e) {} };
+    
+    window.playShootSound = function() { 
+        try { 
+            window.audioIndex = window.audioIndex || 0; 
+            audioPool[window.audioIndex].volume = 0.5; 
+            audioPool[window.audioIndex].currentTime = 0; 
+            audioPool[window.audioIndex].play().catch(()=>{}); 
+            window.audioIndex = (window.audioIndex + 1) % audioPool.length; 
+        } catch(e) {} 
+    };
 
     const TILE_SIZE = 80; 
     const gridCanvas = document.createElement('canvas'); gridCanvas.width = TILE_SIZE * 2; gridCanvas.height = TILE_SIZE * 2;
@@ -684,7 +659,6 @@
     let localPlayer = new Player(0, 0, true); let remotePlayer = new Player(0, 0, false);
     
     function resetPositions() {
-        // Move players safely inward (2.5 tiles) so they don't get stuck on boundary trees
         if(myRole === 'Panda') {
             localPlayer.x = 2.5 * TILE_SIZE; localPlayer.y = 2.5 * TILE_SIZE;
             remotePlayer.x = (MAP_SIZE - 2.5) * TILE_SIZE; remotePlayer.y = (MAP_SIZE - 2.5) * TILE_SIZE;
@@ -719,7 +693,6 @@
                 if ((c < 5 && r < 5) || (c > MAP_SIZE - 6 && r > MAP_SIZE - 6)) continue; 
                 
                 // 3. Guaranteed Open City-Block Grid (Pathways)
-                // Ensures you can travel everywhere without getting blocked
                 if (c % 3 === 0 || r % 3 === 0) {
                     if (randomSeed() > 0.85) { // Occasional bush on the path
                         worldObjects.push({ type: hidingSpots[Math.floor(randomSeed()*hidingSpots.length)], x: x, y: y, size: TILE_SIZE, isSolid: false, isHidingSpot: true });
@@ -859,7 +832,7 @@
     };
 
     document.getElementById('btn-leave-room').onclick = () => { window.location.reload(); };
-    document.getElementById('music-toggle').addEventListener('click', (e) => { e.stopPropagation(); toggleMute(); });
+    
     document.getElementById('btn-copy-room').onclick = function() {
         navigator.clipboard.writeText(`Let's play Hide & Hunt!\nRoom ID: ${roomId}\nPassword: ${roomPassword}`);
         let o = this.innerText; this.innerText = "COPIED!"; this.style.background = "#2ecc71";
@@ -1064,8 +1037,10 @@
         localPlayer.isAiming = false; btn.classList.remove("aiming-mode");
         let ray = performRaycast(localPlayer);
 
-        if(roomId !== "SOLO") roomRef.child('events').push({ type: 'shoot', x: ray.hitX, y: ray.hitY }); else explosions.push({ x: ray.hitX, y: ray.hitY, radius: 10, maxRadius: 40, life: 1.0 });
+        // Sound plays for BOTH Fox and Panda when action button pressed
         if(window.playShootSound) window.playShootSound();
+
+        if(roomId !== "SOLO") roomRef.child('events').push({ type: 'shoot', x: ray.hitX, y: ray.hitY }); else explosions.push({ x: ray.hitX, y: ray.hitY, radius: 10, maxRadius: 40, life: 1.0 });
 
         if (myRole === 'Fox') {
             if (gameState === 'hiding') {
@@ -1192,8 +1167,6 @@
         }
         requestAnimationFrame(gameLoop);
     }
-
-    window.addEventListener('load', () => { addButtonSounds(); });
 </script>
 </body>
     </html>
