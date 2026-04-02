@@ -416,10 +416,54 @@
 
     const totalAssets = Object.keys(criticalAssets).length + Object.keys(secondaryAssets).length + 1; // +1 for shoot.mp3
 
+    // ==========================================
+    // AUDIO SYSTEM SETUP (Fix for Autoplay & Sound Hooks)
+    // ==========================================
+    const audioPool = []; let audioLoaded = false;
+    const markAudio = () => { 
+        if(!audioLoaded) { 
+            audioLoaded = true; assetsLoaded++; updateLoadingBar(); 
+            if (assetsLoaded >= totalAssets) finalizeLoading(); 
+        } 
+    };
+
+    for(let i=0; i<5; i++) {
+        let a = new Audio('shoot.mp3?v=' + GAME_VERSION);
+        a.preload = 'auto';
+        if(i === 0) { 
+            a.oncanplaythrough = markAudio; 
+            a.onerror = markAudio; 
+            setTimeout(markAudio, 2500); // Fail-safe fallback if adblockers block sound loading
+        }
+        audioPool.push(a);
+    }
+    
+    window.playShootSound = function() { 
+        try { 
+            window.audioIndex = window.audioIndex || 0; 
+            let snd = audioPool[window.audioIndex];
+            snd.currentTime = 0; 
+            snd.volume = 1.0; 
+            let p = snd.play(); 
+            if(p !== undefined) p.catch(()=>{});
+            window.audioIndex = (window.audioIndex + 1) % audioPool.length; 
+        } catch(e) {} 
+    };
+
     document.getElementById('btn-start-game').addEventListener('click', () => {
         document.getElementById('screen-start').style.display = 'none';
         document.getElementById('screen-loading').style.display = 'flex';
         enterFullscreen();
+
+        // Unlock audio context cleanly on first user interaction!
+        audioPool.forEach(a => {
+            a.volume = 0;
+            let p = a.play();
+            if(p !== undefined) {
+                p.then(() => { a.pause(); a.currentTime = 0; a.volume = 1.0; }).catch(()=>{});
+            }
+        });
+
         loadCriticalAssets();
     });
 
@@ -449,7 +493,7 @@
             const markLoaded = () => { 
                 if(!isLoaded) { 
                     isLoaded = true; assetsLoaded++; updateLoadingBar();
-                    if (assetsLoaded >= totalAssets - 1) finalizeLoading();
+                    if (assetsLoaded >= totalAssets - 1) finalizeLoading(); // Note: Audio loaded counts as final asset
                 } 
             };
             img.onload = markLoaded; img.onerror = markLoaded; 
@@ -481,22 +525,6 @@
             }).catch(() => showScreen('screen-auth'));
         } else { showScreen('screen-auth'); }
     }
-
-    // Action/Shoot Sound Pool (Plays for BOTH roles)
-    const audioPool = []; const shootAudio = new Audio(); let audioLoaded = false;
-    const markAudio = () => { if(!audioLoaded) { audioLoaded = true; assetsLoaded++; updateLoadingBar(); if (assetsLoaded >= totalAssets) finalizeLoading(); } };
-    shootAudio.oncanplaythrough = markAudio; shootAudio.onerror = markAudio; shootAudio.src = 'shoot.mp3?v=' + GAME_VERSION;
-    for(let i=0; i<5; i++) audioPool.push(shootAudio.cloneNode());
-    
-    window.playShootSound = function() { 
-        try { 
-            window.audioIndex = window.audioIndex || 0; 
-            audioPool[window.audioIndex].volume = 0.5; 
-            audioPool[window.audioIndex].currentTime = 0; 
-            audioPool[window.audioIndex].play().catch(()=>{}); 
-            window.audioIndex = (window.audioIndex + 1) % audioPool.length; 
-        } catch(e) {} 
-    };
 
     const TILE_SIZE = 80; 
     const gridCanvas = document.createElement('canvas'); gridCanvas.width = TILE_SIZE * 2; gridCanvas.height = TILE_SIZE * 2;
@@ -934,8 +962,15 @@
             let stats = s.val(); 
             if(stats && stats.goldFound !== undefined) { document.getElementById('top-gold').innerText = `GOLD: ${stats.goldFound}/5`; if (gameState === 'playing' && isHost && stats.goldFound >= 5) roomRef.update({ gameState: 'finished', winner: 'Panda' }); }
         });
+        
+        // Listen for other player's actions securely over network
         roomRef.child('events').on('child_added', s => {
-            let ev = s.val(); if(ev.type === 'shoot') { if(window.playShootSound) window.playShootSound(); explosions.push({ x: ev.x, y: ev.y, radius: 10, maxRadius: 40, life: 1.0 }); camera.shakeTime = 10; camera.shakeIntensity = 15; }
+            let ev = s.val(); 
+            if(ev.type === 'shoot' && ev.sender !== myId) { 
+                if(window.playShootSound) window.playShootSound(); 
+                explosions.push({ x: ev.x, y: ev.y, radius: 10, maxRadius: 40, life: 1.0 }); 
+                camera.shakeTime = 8; camera.shakeIntensity = 10; 
+            }
             s.ref.remove(); 
         });
         
@@ -1031,17 +1066,25 @@
         if(localPlayer.isDead || !myRole || foxReloading) return; 
         const btn = document.getElementById('btn-shoot');
         
+        // If not aiming, switch to aiming mode FIRST (First Tap)
         if (!localPlayer.isAiming) { localPlayer.isAiming = true; btn.classList.add("aiming-mode"); return; } 
         if (Date.now() - lastShootTime < 500) return; lastShootTime = Date.now();
         
+        // Firing Action Occurs Here (Second Tap)
         localPlayer.isAiming = false; btn.classList.remove("aiming-mode");
         let ray = performRaycast(localPlayer);
 
-        // Sound plays for BOTH Fox and Panda when action button pressed
+        // ALWAYS PLAY SOUND AND SHOW VISUAL FX LOCALLY INSTANTLY
         if(window.playShootSound) window.playShootSound();
+        explosions.push({ x: ray.hitX, y: ray.hitY, radius: 10, maxRadius: 40, life: 1.0 });
+        camera.shakeTime = 5; camera.shakeIntensity = 10;
 
-        if(roomId !== "SOLO") roomRef.child('events').push({ type: 'shoot', x: ray.hitX, y: ray.hitY }); else explosions.push({ x: ray.hitX, y: ray.hitY, radius: 10, maxRadius: 40, life: 1.0 });
+        // SYNC EVENT TO REMOTE PLAYER
+        if(roomId !== "SOLO") {
+            roomRef.child('events').push({ type: 'shoot', x: ray.hitX, y: ray.hitY, sender: myId });
+        }
 
+        // Apply Logic specific to roles/actions
         if (myRole === 'Fox') {
             if (gameState === 'hiding') {
                 if(ray.hitTarget === 'object' && validHidingContainers.includes(worldObjects[ray.hitObjIndex].type)) {
@@ -1073,10 +1116,12 @@
                     obj.hiddenUntil = Date.now() + 2000;
                     if(mapItems[ray.hitObjIndex]) {
                         if(mapItems[ray.hitObjIndex] === 'gold') { delete mapItems[ray.hitObjIndex]; showAlert("🟡 GOLD FOUND!", "#f1c40f"); if(roomId !== "SOLO") { roomRef.child('stats/goldFound').transaction(c => (c || 0) + 1); roomRef.child(`items/${ray.hitObjIndex}`).remove(); } } 
-                        else if (mapItems[ray.hitObjIndex] === 'bomb') { delete mapItems[ray.hitObjIndex]; showAlert("💥 BOMB HIT!", "#e74c3c"); if(roomId !== "SOLO") { roomRef.child('players/' + myId + '/hp').transaction(hp => Math.max(0, (hp || 100) - 25)); roomRef.child('events').push({ type: 'shoot', x: obj.x+40, y: obj.y+40 }); roomRef.child(`items/${ray.hitObjIndex}`).remove(); } else { localPlayer.hp -= 25; } }
+                        else if (mapItems[ray.hitObjIndex] === 'bomb') { delete mapItems[ray.hitObjIndex]; showAlert("💥 BOMB HIT!", "#e74c3c"); if(roomId !== "SOLO") { roomRef.child('players/' + myId + '/hp').transaction(hp => Math.max(0, (hp || 100) - 25)); roomRef.child('events').push({ type: 'shoot', x: obj.x+40, y: obj.y+40, sender: myId }); roomRef.child(`items/${ray.hitObjIndex}`).remove(); } else { localPlayer.hp -= 25; } }
                     } else { showAlert("NOTHING HERE...", "#ecf0f1"); }
                 }
-            } else if (roomId === "SOLO") { explosions.push({ x: ray.hitX, y: ray.hitY, radius: 10, maxRadius: 30, life: 0.8 }); camera.shakeTime = 5; } else { showAlert("NOTHING HERE...", "#ecf0f1"); }
+            } else { 
+                showAlert("NOTHING HERE...", "#ecf0f1"); 
+            }
         }
     }
 
@@ -1169,4 +1214,4 @@
     }
 </script>
 </body>
-    </html>
+        </html>
