@@ -16,7 +16,7 @@
         html, body { background-color: #6ab04c; overflow: hidden; font-family: 'Nunito', sans-serif; color: #130f40; width: 100%; height: 100%; }
         canvas { display: block; image-rendering: pixelated; } 
         
-        /* 1. PORTRAIT ROTATION WARNING (Handled by JS now so you can login vertically) */
+        /* PORTRAIT ROTATION WARNING */
         #orientation-warning {
             display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
             background: rgba(44, 62, 80, 0.95); color: #f1c40f; z-index: 99999;
@@ -283,6 +283,7 @@
     // 2. GLOBALS, SCREENS & ORIENTATION
     // ==========================================
     window.isLoggedIn = false;
+    const GAME_VERSION = '1.2'; // ← CACHE BUSTING VERSION
 
     function enterFullscreen() {
         let elem = document.documentElement;
@@ -292,7 +293,6 @@
 
     function checkOrientation() {
         const warning = document.getElementById('orientation-warning');
-        // ONLY ask them to rotate after they've officially logged in. Vertical login is allowed!
         if (window.isLoggedIn) {
             if (window.innerHeight > window.innerWidth) warning.style.display = 'flex';
             else warning.style.display = 'none';
@@ -419,7 +419,8 @@
         const markLoaded = () => { if(!isLoaded) { isLoaded = true; assetCheck(); } };
         img.onload = markLoaded; 
         img.onerror = markLoaded; 
-        img.src = assetList[key];
+        // ← CACHE BUSTING: Add version query to image URLs
+        img.src = assetList[key] + '?v=' + GAME_VERSION;
         if(img.complete && img.naturalWidth > 0) markLoaded(); 
         images[key] = img;
     }
@@ -435,9 +436,18 @@
     const explosions = []; const renderQueue = []; 
     let worldObjects = [];
 
+    // ← OBJECT TYPE CATEGORIES (Cleaner Logic!)
     const solidCover = ['tree', 'wall', 'fence', 'pillar', 'well', 'statue', 'vending', 'tent', 'sign', 'cart', 'stall', 'arcade', 'hydrant', 'mailbox', 'gaspump', 'toilet', 'doghouse', 'radar'];
     const destructibles = ['safe', 'barrel', 'crate', 'sack', 'log', 'dumpster', 'tires'];
-    const hidingSpots = ['bush', 'grass', 'shroom', 'fire'];
+    const hidingSpots = ['bush', 'grass']; // ← ONLY walk-through hiding spots
+    const decorativeSolids = ['shroom', 'fire']; // ← NOW SOLID! Player can't walk through
+    
+    // ← NEW: Fox can hide items in these containers (makes finding harder! 😅)
+    const validHidingContainers = [
+        'barrel', 'crate', 'sack', 'log', 'dumpster', 'tires', // destructibles
+        'vending', 'tent', 'cart', 'stall', 'mailbox', 'doghouse', // solid cover that makes sense
+        'bush', 'grass' // hiding spots (tricky!)
+    ];
 
     // ==========================================
     // 4. INPUT CONTROLS
@@ -467,7 +477,16 @@
 
     function updateJoystick(clientX, clientY) { 
         let dx = clientX - joystickCenter.x; let dy = clientY - joystickCenter.y; 
-        let dist = Math.sqrt(dx * dx + dy * dy); let maxRad = 45; 
+        let dist = Math.sqrt(dx * dx + dy * dy); let maxRad = 45;
+        
+        // ← DEADZONE FIX: Prevents jittery movement
+        const DEADZONE = 0.15;
+        if (dist < maxRad * DEADZONE) {
+            input.x = 0; input.y = 0;
+            joystickKnob.style.transform = `translate(-50%, -50%)`;
+            return;
+        }
+        
         if (dist > maxRad) { dx = (dx / dist) * maxRad; dy = (dy / dist) * maxRad; } 
         joystickKnob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`; 
         input.x = dx / maxRad; input.y = dy / maxRad; 
@@ -546,7 +565,10 @@
             for (let i = 0; i < worldObjects.length; i++) {
                 let obj = worldObjects[i];
                 if (obj.hiddenUntil && Date.now() < obj.hiddenUntil) continue;
-                if (obj.isSolid && pBox.right > obj.x && pBox.left < obj.x + obj.size && pBox.bottom > obj.y + (obj.size*0.5) && pBox.top < obj.y + obj.size) return true;
+                // ← FIXED: Check collision for ALL solid objects including decorativeSolids
+                if ((obj.isSolid || decorativeSolids.includes(obj.type)) && 
+                    pBox.right > obj.x && pBox.left < obj.x + obj.size && 
+                    pBox.bottom > obj.y + (obj.size*0.5) && pBox.top < obj.y + obj.size) return true;
             }
             return false;
         }
@@ -609,10 +631,16 @@
                 let rand = randomSeed();
                 if (rand > 0.80) worldObjects.push({ type: destructibles[Math.floor(randomSeed()*destructibles.length)], x: x, y: y, size: TILE_SIZE-10, isSolid: true });
                 else if (rand > 0.65) worldObjects.push({ type: hidingSpots[Math.floor(randomSeed()*hidingSpots.length)], x: x, y: y, size: TILE_SIZE, isSolid: false, isHidingSpot: true }); 
-                else if (rand > 0.50) worldObjects.push({ type: solidCover[Math.floor(randomSeed()*solidCover.length)], x: x, y: y, size: TILE_SIZE, isSolid: true });
+                // ← NEW: Add decorative solids (shroom/fire) as SOLID objects
+                else if (rand > 0.55) worldObjects.push({ type: decorativeSolids[Math.floor(randomSeed()*decorativeSolids.length)], x: x, y: y, size: TILE_SIZE, isSolid: true });
+                else if (rand > 0.40) worldObjects.push({ type: solidCover[Math.floor(randomSeed()*solidCover.length)], x: x, y: y, size: TILE_SIZE, isSolid: true });
             }
         }
-        for (let i = 0; i < worldObjects.length; i++) { if (!solidCover.includes(worldObjects[i].type) && !worldObjects[i].isHidingSpot) candidateContainers.push(i); }
+        for (let i = 0; i < worldObjects.length; i++) { 
+            let obj = worldObjects[i];
+            // ← UPDATED: Valid containers now include more types
+            if (validHidingContainers.includes(obj.type) && !obj.isHidingSpot) candidateContainers.push(i); 
+        }
         safeObjIndex = candidateContainers[Math.floor(randomSeed() * candidateContainers.length)];
         worldObjects[safeObjIndex].type = 'safe'; worldObjects[safeObjIndex].isSolid = true;
         do { passwordObjIndex = candidateContainers[Math.floor(randomSeed() * candidateContainers.length)]; } while (passwordObjIndex === safeObjIndex);
@@ -682,7 +710,17 @@
     document.getElementById('btn-menu-create').onclick = () => { enterFullscreen(); createRoom(); };
     document.getElementById('btn-menu-join').onclick = () => { enterFullscreen(); showScreen('screen-join'); };
     document.getElementById('btn-submit-join').onclick = joinRoom;
-    document.getElementById('btn-leave-room').onclick = () => window.location.reload();
+    document.getElementById('btn-leave-room').onclick = () => {
+        // ← CLEANUP: Remove listeners to prevent memory leaks
+        if(roomRef) {
+            roomRef.child('players').off('value');
+            roomRef.child('gameState').off('value');
+            roomRef.child('items').off('value');
+            roomRef.child('events').off('child_added');
+            roomRef = null;
+        }
+        window.location.reload();
+    };
 
     // SOLO TESTING SANDBOX
     document.getElementById('btn-menu-solo').onclick = () => {
@@ -844,6 +882,9 @@
                     remotePlayer.isAiming = p.isAiming || false;
                     remotePlayer.role = p.role || "";
                     if(p.aimDir) remotePlayer.aimDir = p.aimDir;
+                    // ← FIX: Sync animation frames for smooth remote player
+                    if(p.frameY !== undefined) remotePlayer.frameY = p.frameY;
+                    if(p.facingRight !== undefined) remotePlayer.facingRight = p.facingRight;
                     
                     remotePlayer.hp = p.hp !== undefined ? p.hp : 100;
                     remotePlayer.isDead = remotePlayer.hp <= 0;
@@ -933,7 +974,10 @@
             else if(gameState === 'countdown') { showScreen('screen-countdown'); resetPositions(); foxInventory = { gold: 5, bombs: 2 }; foxReloading = false; }
             else if(gameState === 'hiding') {
                 showScreen('ui-layer');
-                document.getElementById('btn-shoot').style.display = myRole === 'Fox' ? 'flex' : 'none';
+                // ← FIX: Show shoot button in solo mode for Panda testing
+                const isSolo = (roomId === "SOLO");
+                const showShootBtn = (myRole === 'Fox') || (isSolo && myRole === 'Panda');
+                document.getElementById('btn-shoot').style.display = showShootBtn ? 'flex' : 'none';
                 
                 if(myRole === 'Fox') {
                     document.getElementById('btn-shoot').innerHTML = "📦";
@@ -951,7 +995,10 @@
             else if(gameState === 'playing') {
                 showScreen('ui-layer');
                 document.getElementById('btn-toggle-item').style.display = 'none';
-                document.getElementById('btn-shoot').style.display = 'flex'; 
+                // ← FIX: Show shoot button in solo for Panda
+                const isSolo = (roomId === "SOLO");
+                const showShootBtn = (myRole === 'Fox') || (isSolo && myRole === 'Panda');
+                document.getElementById('btn-shoot').style.display = showShootBtn ? 'flex' : 'none';
                 
                 if (!foxReloading) document.getElementById('btn-shoot').innerHTML = "🔫"; 
 
@@ -971,6 +1018,10 @@
                 } else {
                     document.getElementById('btn-play-again').style.display = 'none';
                 }
+                
+                // ← FIX: Freeze players immediately on game end
+                localPlayer.isDead = true;
+                remotePlayer.isDead = true;
                 
                 roomRef.child('winner').once('value', wSnap => {
                     let winner = wSnap.val();
@@ -1044,8 +1095,13 @@
         if(!myRole) return;
         let p1Data = myRole === 'Fox' ? localPlayer : remotePlayer;
         let p2Data = myRole === 'Panda' ? localPlayer : remotePlayer;
-        document.getElementById('hud-p1').innerHTML = `🦊 <span class="hp-text">${Math.max(0, p1Data.hp)} HP</span>`;
-        document.getElementById('hud-p2').innerHTML = `🐼 <span class="hp-text">${Math.max(0, p2Data.hp)} HP</span>`;
+        // ← FIX: Color-coded HP warning
+        let p1HP = Math.max(0, p1Data.hp);
+        let p1Color = p1HP > 50 ? '#2ecc71' : (p1HP > 25 ? '#f39c12' : '#e74c3c');
+        let p2HP = Math.max(0, p2Data.hp);
+        let p2Color = p2HP > 50 ? '#2ecc71' : (p2HP > 25 ? '#f39c12' : '#e74c3c');
+        document.getElementById('hud-p1').innerHTML = `🦊 <span class="hp-text" style="color:${p1Color}">${p1HP} HP</span>`;
+        document.getElementById('hud-p2').innerHTML = `🐼 <span class="hp-text" style="color:${p2Color}">${p2HP} HP</span>`;
         document.getElementById('top-status').innerText = gameState.toUpperCase();
     }
 
@@ -1079,7 +1135,8 @@
     function autoPlace(type) {
         for(let i=0; i<worldObjects.length; i++) {
             let obj = worldObjects[i];
-            if(!solidCover.includes(obj.type) && !obj.isHidingSpot && !mapItems[i] && i !== safeObjIndex && i !== passwordObjIndex) {
+            // ← UPDATED: Use validHidingContainers for auto-placement too
+            if (validHidingContainers.includes(obj.type) && !mapItems[i] && i !== safeObjIndex && i !== passwordObjIndex) {
                 mapItems[i] = type; roomRef.child(`items/${i}`).set(type); return;
             }
         }
@@ -1143,7 +1200,7 @@
                 let obj = worldObjects[j];
                 if (obj.hiddenUntil && Date.now() < obj.hiddenUntil) continue;
                 
-                if (obj.isSolid || obj.isHidingSpot) {
+                if (obj.isSolid || obj.isHidingSpot || decorativeSolids.includes(obj.type)) {
                     if (hitX > obj.x && hitX < obj.x + obj.size && 
                         hitY > obj.y + 15 && hitY < obj.y + obj.size - 10) {
                         hitTarget = 'object';
@@ -1180,7 +1237,8 @@
         // ======= FOX MECHANICS =======
         if (myRole === 'Fox') {
             if (gameState === 'hiding') {
-                if(ray.hitTarget === 'object' && !solidCover.includes(worldObjects[ray.hitObjIndex].type) && !worldObjects[ray.hitObjIndex].isHidingSpot) {
+                // ← UPDATED: Fox can now hide in MORE container types!
+                if(ray.hitTarget === 'object' && validHidingContainers.includes(worldObjects[ray.hitObjIndex].type)) {
                     let hitObjIndex = ray.hitObjIndex;
                     if(hitObjIndex === safeObjIndex || hitObjIndex === passwordObjIndex) { showAlert("CAN'T HIDE HERE!", "#e74c3c"); return; }
                     if(mapItems[hitObjIndex]) { showAlert("ALREADY OCCUPIED!", "#e67e22"); return; }
@@ -1257,7 +1315,15 @@
                         showAlert("NOTHING HERE...", "#ecf0f1");
                     }
                 }
-            } else {
+            } 
+            // ← NEW: Allow Panda to TEST shoot in solo mode (visual feedback only)
+            else if (roomId === "SOLO" && myRole === 'Panda') {
+                showAlert(`[TEST] Hit: ${ray.hitTarget || 'empty'}`, "#3498db");
+                explosions.push({ x: ray.hitX, y: ray.hitY, radius: 10, maxRadius: 30, life: 0.8 });
+                camera.shakeTime = 5;
+                return;
+            }
+            else {
                 showAlert("NOTHING HERE...", "#ecf0f1");
             }
         }
@@ -1270,7 +1336,7 @@
     // ==========================================
     function drawWorldObjFallback(ctx, wObj, dX, dY, dSize) {
         ctx.save(); ctx.translate(dX, dY);
-        if (solidCover.includes(wObj.type)) {
+        if (solidCover.includes(wObj.type) || decorativeSolids.includes(wObj.type)) {
             ctx.fillStyle = '#34495e'; ctx.fillRect(0, 0, dSize, dSize);
             ctx.strokeStyle = '#2c3e50'; ctx.lineWidth = 4; ctx.strokeRect(0, 0, dSize, dSize);
         } else if (wObj.isHidingSpot) {
@@ -1331,8 +1397,15 @@
                         ctx.globalAlpha = 1.0;
                     }
 
-                    if(!wObj.isSolid && !wObj.isHidingSpot) { ctx.fillStyle = "rgba(0,0,0,0.2)"; ctx.beginPath(); ctx.ellipse(wObj.x + wObj.size/2, wObj.y + wObj.size - 5, wObj.size*0.45, wObj.size*0.15, 0, 0, Math.PI * 2); ctx.fill(); }
-                    
+                    // ← FIX: Draw shadows for ALL objects (not just non-solid)
+                    ctx.fillStyle = "rgba(0,0,0,0.25)";
+                    ctx.beginPath();
+                    let shadowY = wObj.y + wObj.size - 8;
+                    let shadowRadiusX = wObj.size * 0.45;
+                    let shadowRadiusY = wObj.size * 0.12;
+                    ctx.ellipse(wObj.x + wObj.size/2, shadowY, shadowRadiusX, shadowRadiusY, 0, 0, Math.PI * 2);
+                    ctx.fill();
+
                     let dSize = wObj.size; let dX = wObj.x; let dY = wObj.y;
                     
                     if(['tree', 'stall', 'tent', 'statue'].includes(wObj.type) || newPropsSheet.includes(wObj.type)) { 
@@ -1445,10 +1518,24 @@
                 ctx.restore();
                 damageFlash -= dt * 1.5; 
             }
+            
+            // ← DEBUG MODE (toggle with window.DEBUG = true)
+            if(window.DEBUG) {
+                ctx.save();
+                ctx.setTransform(1, 0, 0, 1, 0, 0);
+                ctx.fillStyle = 'rgba(0,0,0,0.7)';
+                ctx.font = '14px monospace';
+                ctx.fillText(`FPS: ${Math.round(1/dt)} | Objects: ${worldObjects.length}`, 10, 30);
+                ctx.fillText(`Ver: ${GAME_VERSION}`, 10, 50);
+                // Draw collision box for local player
+                ctx.strokeStyle = 'red';
+                ctx.strokeRect(localPlayer.x-15, localPlayer.y+10, 30, 25);
+                ctx.restore();
+            }
         }
         
         requestAnimationFrame(gameLoop);
     }
 </script>
 </body>
-    </html>
+                        </html>
