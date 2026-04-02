@@ -86,9 +86,26 @@
         
         .paper-note { background: #f1f2f6; color: #2f3542; padding: 30px; border-radius: 5px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); font-family: 'Courier New', Courier, monospace; font-size: 40px; font-weight: bold; transform: rotate(-3deg); border: 1px solid #ced6e0; position: relative;}
         .paper-note::before { content: ''; position: absolute; top: -10px; left: 50%; transform: translateX(-50%); width: 40px; height: 15px; background: rgba(231, 76, 60, 0.7); display: block; }
+
+        /* ← NEW: START SCREEN & MUSIC CONTROLS */
+        #screen-start { background: linear-gradient(135deg, #6ab04c 0%, #487eb0 100%); }
+        #start-logo { font-size: 60px; margin-bottom: 20px; animation: bounce 1s infinite alternate; }
+        @keyframes bounce { from { transform: translateY(0); } to { transform: translateY(-10px); } }
+        
+        #music-toggle { position: absolute; top: 15px; right: 15px; background: rgba(0,0,0,0.6); border: 3px solid #f1c40f; color: white; width: 50px; height: 50px; border-radius: 50%; font-size: 24px; cursor: pointer; display: flex; justify-content: center; align-items: center; z-index: 200; pointer-events: auto; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+        #music-toggle.muted { opacity: 0.6; }
     </style>
 </head>
 <body>
+
+    <!-- ← NEW: START SCREEN (First impression!) -->
+    <div id="screen-start" class="full-screen" style="display: flex;">
+        <div id="start-logo">🦊🐼</div>
+        <h1 style="font-size: 50px; -webkit-text-stroke: 3px #000; text-shadow: 0 8px 0 #000; margin-bottom: 10px;">HIDE & HUNT</h1>
+        <p style="font-size: 20px; margin-bottom: 30px; font-weight: bold;">The Ultimate Multiplayer Chase!</p>
+        <button class="main-btn btn-orange" id="btn-start-game" style="font-size: 24px; padding: 20px 40px;">▶ START GAME</button>
+        <p style="margin-top: 20px; font-size: 14px; opacity: 0.8;">Tap to begin • Best played in Landscape</p>
+    </div>
 
     <!-- PORTRAIT WARNING LAYER -->
     <div id="orientation-warning">
@@ -97,13 +114,17 @@
         <p>This game must be played in Landscape Mode!</p>
     </div>
 
-    <!-- 1. LOADING SCREEN -->
-    <div id="screen-loading" class="full-screen bg-grass" style="display: flex;">
+    <!-- MUSIC TOGGLE BUTTON (Visible in-game) -->
+    <button id="music-toggle" style="display: none;">🔊</button>
+
+    <!-- 1. LOADING SCREEN (Optimized) -->
+    <div id="screen-loading" class="full-screen bg-grass" style="display: none;">
         <h1 style="font-size: 40px; -webkit-text-stroke: 2px #000; text-shadow: 0 6px 0 #000;">HIDE & HUNT</h1>
-        <div style="width: 70%; max-width: 400px; height: 15px; background: rgba(0,0,0,0.3); border-radius: 10px; margin-top: 30px; border: 3px solid #333;">
-            <div id="loading-bar" style="width: 0%; height: 100%; background: #f1c40f; border-radius: 6px; transition: width 0.2s;"></div>
+        <div style="width: 70%; max-width: 400px; height: 20px; background: rgba(0,0,0,0.3); border-radius: 12px; margin-top: 25px; border: 3px solid #333; overflow: hidden;">
+            <div id="loading-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #f1c40f, #e67e22); border-radius: 8px; transition: width 0.15s ease-out;"></div>
         </div>
-        <p id="loading-text" style="margin-top:10px; font-weight: bold;">Loading Assets...</p>
+        <p id="loading-text" style="margin-top:15px; font-weight: bold; font-size: 16px;">Loading...</p>
+        <p id="loading-tip" style="margin-top: 8px; font-size: 13px; opacity: 0.9; max-width: 350px;">Tip: Hide gold in barrels, tents & bushes to trick your friend! 😏</p>
     </div>
 
     <!-- 2. AUTH SCREEN (LOGIN / REGISTER) -->
@@ -182,11 +203,12 @@
         </div>
     </div>
 
-    <!-- 6. COUNTDOWN OVERLAY -->
+    <!-- 6. COUNTDOWN OVERLAY (15 seconds) -->
     <div id="screen-countdown" class="full-screen bg-dark">
         <h2 style="color: #fff; font-size: 30px;">GAME STARTING IN</h2>
-        <div id="big-countdown">10</div>
-        <p style="margin-top: 20px; color: #bdc3c7;">Get ready...</p>
+        <div id="big-countdown">15</div>
+        <p style="margin-top: 20px; color: #bdc3c7; font-size: 18px;">Get ready...</p>
+        <p id="countdown-tip" style="margin-top: 10px; color: #f1c40f; font-size: 16px; font-style: italic;">Fox: Hide your gold! • Panda: Get ready to search!</p>
     </div>
 
     <!-- 7. BLINDNESS/END/BLOCKER OVERLAY -->
@@ -283,7 +305,71 @@
     // 2. GLOBALS, SCREENS & ORIENTATION
     // ==========================================
     window.isLoggedIn = false;
-    const GAME_VERSION = '1.2'; // ← CACHE BUSTING VERSION
+    const GAME_VERSION = '2.0'; // ← Updated version for cache busting
+
+    // ← NEW: AUDIO SYSTEM
+    let bgMusic = null;
+    let buttonSound = null;
+    let isMuted = false;
+    let audioInitialized = false;
+
+    function initAudio() {
+        if (audioInitialized) return;
+        
+        // Background music (loop)
+        bgMusic = new Audio('bg1.mp3');
+        bgMusic.loop = true;
+        bgMusic.volume = 0.4;
+        
+        // Button click sound (one-shot)
+        buttonSound = new Audio('button1.mp3');
+        buttonSound.volume = 0.6;
+        
+        audioInitialized = true;
+    }
+
+    function playBGM() {
+        if (!audioInitialized) initAudio();
+        if (!isMuted && bgMusic) {
+            bgMusic.play().catch(e => console.log('BGM play blocked:', e));
+        }
+    }
+
+    function toggleMute() {
+        isMuted = !isMuted;
+        const toggleBtn = document.getElementById('music-toggle');
+        if (isMuted) {
+            if (bgMusic) bgMusic.pause();
+            toggleBtn.innerText = '🔇';
+            toggleBtn.classList.add('muted');
+        } else {
+            if (bgMusic) bgMusic.play().catch(()=>{});
+            toggleBtn.innerText = '🔊';
+            toggleBtn.classList.remove('muted');
+        }
+    }
+
+    function playButtonSound() {
+        if (!audioInitialized) initAudio();
+        if (!isMuted && buttonSound) {
+            // Clone for overlapping clicks
+            const click = buttonSound.cloneNode();
+            click.volume = 0.6;
+            click.play().catch(()=>{});
+        }
+    }
+
+    // ← Add click sound to ALL UI buttons (except shoot)
+    function addButtonSounds() {
+        const buttons = document.querySelectorAll('.main-btn, .key-btn, #btn-toggle-item, #music-toggle');
+        buttons.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                // Skip if it's the shoot button or already handled
+                if (btn.id === 'btn-shoot') return;
+                playButtonSound();
+            });
+        });
+    }
 
     function enterFullscreen() {
         let elem = document.documentElement;
@@ -303,9 +389,18 @@
     window.addEventListener('resize', () => { resize(); checkOrientation(); });
 
     function showScreen(screenId) {
-        const screens = ['screen-loading', 'screen-auth', 'screen-menu', 'screen-join', 'screen-lobby', 'screen-countdown', 'screen-blocker', 'ui-layer'];
-        screens.forEach(id => { document.getElementById(id).style.display = (id === screenId) ? 'flex' : 'none'; });
-        if(screenId === 'ui-layer') document.getElementById('ui-layer').style.display = 'block'; 
+        const screens = ['screen-start', 'screen-loading', 'screen-auth', 'screen-menu', 'screen-join', 'screen-lobby', 'screen-countdown', 'screen-blocker', 'ui-layer'];
+        screens.forEach(id => { 
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.style.display = (id === screenId) ? 'flex' : 'none'; 
+        });
+        if(screenId === 'ui-layer') {
+            document.getElementById('ui-layer').style.display = 'block';
+            document.getElementById('music-toggle').style.display = 'flex'; // ← Show mute button in-game
+        } else {
+            document.getElementById('music-toggle').style.display = (screenId === 'screen-start') ? 'none' : 'none';
+        }
     }
 
     let myId = Math.random().toString(36).substr(2, 9);
@@ -334,6 +429,10 @@
 
     let damageFlash = 0;
 
+    // ← NEW: 15-second pre-game countdown timer
+    let preGameCountdown = 15;
+    let preGameTimer = null;
+
     function randomSeed() {
         mapSeed |= 0; mapSeed = mapSeed + 0x6D2B79F5 | 0;
         let t = Math.imul(mapSeed ^ mapSeed >>> 15, 1 | mapSeed);
@@ -342,7 +441,7 @@
     }
 
     // ==========================================
-    // 3. ENGINE SETUP & ASSETS
+    // 3. ENGINE SETUP & ASSETS (OPTIMIZED)
     // ==========================================
     const canvas = document.getElementById('gameCanvas'); 
     const ctx = canvas.getContext('2d', { alpha: false }); 
@@ -357,25 +456,125 @@
     };
 
     const images = {}; let assetsLoaded = 0; let assetsFinished = false;
-    const assetList = { 
-        panda: 'panda.png', fox: 'fox.png', grass: 'Tall Grass Patch.png', log: 'Hollow Log.png', bush: 'Berry Bush.png', 
-        tree: 'Pine Tree.png', shroom: 'Giant Mushroom.png', wall: 'Brick Wall Segment.png', fence: 'Wooden Fence.png', pillar: 'Stone Pillar.png', well: 'Water Well.png', 
-        statue: 'Animal Statue.png', barrel: 'Wooden Barrels.png', safe: 'Metal Safe.png', crate: 'Supply Crate.png', vending: 'Vending Machine.png', sack: 'Loot Sack.png', 
-        tent: 'Camping Tent.png', fire: 'Campfire.png', sign: 'Signpost.png', cart: 'Broken Cart.png', stall: 'Market Stall.png',
-        props: 'props_spritesheet.png' 
+    
+    // ← OPTIMIZED: Load only CRITICAL assets first for faster start
+    const criticalAssets = { 
+        panda: 'panda.png', fox: 'fox.png', grass: 'Tall Grass Patch.png'
     };
-    const totalAssets = Object.keys(assetList).length + 1; 
+    const secondaryAssets = {
+        log: 'Hollow Log.png', bush: 'Berry Bush.png', tree: 'Pine Tree.png', shroom: 'Giant Mushroom.png', 
+        wall: 'Brick Wall Segment.png', fence: 'Wooden Fence.png', pillar: 'Stone Pillar.png', well: 'Water Well.png', 
+        statue: 'Animal Statue.png', barrel: 'Wooden Barrels.png', safe: 'Metal Safe.png', crate: 'Supply Crate.png', 
+        vending: 'Vending Machine.png', sack: 'Loot Sack.png', tent: 'Camping Tent.png', fire: 'Campfire.png', 
+        sign: 'Signpost.png', cart: 'Broken Cart.png', stall: 'Market Stall.png', props: 'props_spritesheet.png'
+    };
+
+    const totalAssets = Object.keys(criticalAssets).length + Object.keys(secondaryAssets).length + 2; // +2 for audio
 
     let forcedStart = false;
-    setTimeout(() => { 
-        if (!forcedStart) { 
-            forcedStart = true;
-            triggerAuthFlow(); 
-        } 
-    }, 3000); 
+    
+    // ← NEW: Start button triggers audio + loading
+    document.getElementById('btn-start-game').addEventListener('click', () => {
+        initAudio();
+        playBGM();
+        playButtonSound();
+        
+        // Show loading screen
+        document.getElementById('screen-start').style.display = 'none';
+        document.getElementById('screen-loading').style.display = 'flex';
+        
+        // Start loading critical assets first
+        loadCriticalAssets();
+    });
+
+    function loadCriticalAssets() {
+        document.getElementById('loading-text').innerText = "Loading Essentials...";
+        
+        // Load critical images with version cache-busting
+        for (let key in criticalAssets) {
+            let img = new Image();
+            let isLoaded = false;
+            const markLoaded = () => { 
+                if(!isLoaded) { 
+                    isLoaded = true; 
+                    assetsLoaded++; 
+                    updateLoadingBar();
+                    if (assetsLoaded === Object.keys(criticalAssets).length) {
+                        loadSecondaryAssets();
+                    }
+                } 
+            };
+            img.onload = markLoaded; 
+            img.onerror = markLoaded; 
+            img.src = criticalAssets[key] + '?v=' + GAME_VERSION;
+            if(img.complete && img.naturalWidth > 0) markLoaded(); 
+            images[key] = img;
+        }
+    }
+
+    function loadSecondaryAssets() {
+        document.getElementById('loading-text').innerText = "Loading Map...";
+        
+        for (let key in secondaryAssets) {
+            let img = new Image();
+            let isLoaded = false;
+            const markLoaded = () => { 
+                if(!isLoaded) { 
+                    isLoaded = true; 
+                    assetsLoaded++; 
+                    updateLoadingBar();
+                    if (assetsLoaded >= totalAssets - 2) { // -2 for audio which loads separately
+                        finalizeLoading();
+                    }
+                } 
+            };
+            img.onload = markLoaded; 
+            img.onerror = markLoaded; 
+            img.src = secondaryAssets[key] + '?v=' + GAME_VERSION;
+            if(img.complete && img.naturalWidth > 0) markLoaded(); 
+            images[key] = img;
+        }
+        
+        // Load audio files
+        if (bgMusic) {
+            bgMusic.oncanplaythrough = () => { assetsLoaded++; updateLoadingBar(); };
+            bgMusic.onerror = () => { assetsLoaded++; updateLoadingBar(); };
+            bgMusic.load();
+        }
+        if (buttonSound) {
+            buttonSound.oncanplaythrough = () => { assetsLoaded++; updateLoadingBar(); };
+            buttonSound.onerror = () => { assetsLoaded++; updateLoadingBar(); };
+            buttonSound.load();
+        }
+    }
+
+    function updateLoadingBar() {
+        const percent = Math.min(100, Math.floor((assetsLoaded / totalAssets) * 100));
+        document.getElementById('loading-bar').style.width = percent + "%";
+        
+        // Dynamic loading tips
+        const tips = [
+            "Pro Tip: Aim carefully - the laser shows exactly where you'll hit! 🎯",
+            "Fox: Hide gold in unexpected places like mailboxes! 📬",
+            "Panda: Check EVERY container - gold could be anywhere! 🔍",
+            "Bombs hurt you! Stay away from suspicious crates! 💥",
+            "Find the password note to unlock the safe for +30 HP! 💉"
+        ];
+        const tipIndex = Math.floor(percent / 20);
+        document.getElementById('loading-tip').innerText = tips[tipIndex] || tips[0];
+    }
+
+    function finalizeLoading() {
+        assetsFinished = true;
+        document.getElementById('loading-text').innerText = "Ready!";
+        
+        // Small delay for smooth transition
+        setTimeout(() => {
+            triggerAuthFlow();
+        }, 300);
+    }
 
     function triggerAuthFlow() {
-        document.getElementById('loading-text').innerText = "Authenticating...";
         let savedU = localStorage.getItem('hidehunt_user');
         let savedP = localStorage.getItem('hidehunt_pass');
         
@@ -393,37 +592,16 @@
         }
     }
 
-    function assetCheck() {
-        assetsLoaded++; 
-        document.getElementById('loading-bar').style.width = Math.floor((assetsLoaded / totalAssets) * 100) + "%";
-        if (assetsLoaded >= totalAssets && !forcedStart) {
-            forcedStart = true;
-            triggerAuthFlow();
-        }
-    }
-
     const audioPool = []; 
     const shootAudio = new Audio(); 
     let audioLoaded = false;
-    const markAudio = () => { if(!audioLoaded) { audioLoaded = true; assetCheck(); } };
+    const markAudio = () => { if(!audioLoaded) { audioLoaded = true; assetsLoaded++; updateLoadingBar(); } };
     shootAudio.oncanplaythrough = markAudio; 
     shootAudio.onerror = markAudio; 
-    shootAudio.src = 'shoot.mp3';
+    shootAudio.src = 'shoot.mp3?v=' + GAME_VERSION;
     for(let i=0; i<5; i++) audioPool.push(shootAudio.cloneNode());
     
     window.playShootSound = function() { try { window.audioIndex = window.audioIndex || 0; audioPool[window.audioIndex].volume = 0.5; audioPool[window.audioIndex].currentTime = 0; audioPool[window.audioIndex].play().catch(()=>{}); window.audioIndex = (window.audioIndex + 1) % audioPool.length; } catch(e) {} };
-
-    for (let key in assetList) {
-        let img = new Image(); 
-        let isLoaded = false;
-        const markLoaded = () => { if(!isLoaded) { isLoaded = true; assetCheck(); } };
-        img.onload = markLoaded; 
-        img.onerror = markLoaded; 
-        // ← CACHE BUSTING: Add version query to image URLs
-        img.src = assetList[key] + '?v=' + GAME_VERSION;
-        if(img.complete && img.naturalWidth > 0) markLoaded(); 
-        images[key] = img;
-    }
 
     const TILE_SIZE = 80; 
     const gridCanvas = document.createElement('canvas'); gridCanvas.width = TILE_SIZE * 2; gridCanvas.height = TILE_SIZE * 2;
@@ -436,18 +614,21 @@
     const explosions = []; const renderQueue = []; 
     let worldObjects = [];
 
-    // ← OBJECT TYPE CATEGORIES (Cleaner Logic!)
+    // OBJECT TYPE CATEGORIES
     const solidCover = ['tree', 'wall', 'fence', 'pillar', 'well', 'statue', 'vending', 'tent', 'sign', 'cart', 'stall', 'arcade', 'hydrant', 'mailbox', 'gaspump', 'toilet', 'doghouse', 'radar'];
     const destructibles = ['safe', 'barrel', 'crate', 'sack', 'log', 'dumpster', 'tires'];
-    const hidingSpots = ['bush', 'grass']; // ← ONLY walk-through hiding spots
-    const decorativeSolids = ['shroom', 'fire']; // ← NOW SOLID! Player can't walk through
+    const hidingSpots = ['bush', 'grass'];
+    const decorativeSolids = ['shroom', 'fire'];
     
-    // ← NEW: Fox can hide items in these containers (makes finding harder! 😅)
+    // Fox can hide items in these containers
     const validHidingContainers = [
-        'barrel', 'crate', 'sack', 'log', 'dumpster', 'tires', // destructibles
-        'vending', 'tent', 'cart', 'stall', 'mailbox', 'doghouse', // solid cover that makes sense
-        'bush', 'grass' // hiding spots (tricky!)
+        'barrel', 'crate', 'sack', 'log', 'dumpster', 'tires',
+        'vending', 'tent', 'cart', 'stall', 'mailbox', 'doghouse',
+        'bush', 'grass'
     ];
+
+    // ← NEW: Tall objects that DON'T get ground shadows
+    const noShadowObjects = ['tree', 'stall', 'tent', 'statue', 'pillar', 'sign'];
 
     // ==========================================
     // 4. INPUT CONTROLS
@@ -479,7 +660,6 @@
         let dx = clientX - joystickCenter.x; let dy = clientY - joystickCenter.y; 
         let dist = Math.sqrt(dx * dx + dy * dy); let maxRad = 45;
         
-        // ← DEADZONE FIX: Prevents jittery movement
         const DEADZONE = 0.15;
         if (dist < maxRad * DEADZONE) {
             input.x = 0; input.y = 0;
@@ -565,7 +745,6 @@
             for (let i = 0; i < worldObjects.length; i++) {
                 let obj = worldObjects[i];
                 if (obj.hiddenUntil && Date.now() < obj.hiddenUntil) continue;
-                // ← FIXED: Check collision for ALL solid objects including decorativeSolids
                 if ((obj.isSolid || decorativeSolids.includes(obj.type)) && 
                     pBox.right > obj.x && pBox.left < obj.x + obj.size && 
                     pBox.bottom > obj.y + (obj.size*0.5) && pBox.top < obj.y + obj.size) return true;
@@ -631,14 +810,12 @@
                 let rand = randomSeed();
                 if (rand > 0.80) worldObjects.push({ type: destructibles[Math.floor(randomSeed()*destructibles.length)], x: x, y: y, size: TILE_SIZE-10, isSolid: true });
                 else if (rand > 0.65) worldObjects.push({ type: hidingSpots[Math.floor(randomSeed()*hidingSpots.length)], x: x, y: y, size: TILE_SIZE, isSolid: false, isHidingSpot: true }); 
-                // ← NEW: Add decorative solids (shroom/fire) as SOLID objects
                 else if (rand > 0.55) worldObjects.push({ type: decorativeSolids[Math.floor(randomSeed()*decorativeSolids.length)], x: x, y: y, size: TILE_SIZE, isSolid: true });
                 else if (rand > 0.40) worldObjects.push({ type: solidCover[Math.floor(randomSeed()*solidCover.length)], x: x, y: y, size: TILE_SIZE, isSolid: true });
             }
         }
         for (let i = 0; i < worldObjects.length; i++) { 
             let obj = worldObjects[i];
-            // ← UPDATED: Valid containers now include more types
             if (validHidingContainers.includes(obj.type) && !obj.isHidingSpot) candidateContainers.push(i); 
         }
         safeObjIndex = candidateContainers[Math.floor(randomSeed() * candidateContainers.length)];
@@ -657,6 +834,7 @@
     }
 
     document.getElementById('btn-login').onclick = () => {
+        playButtonSound();
         let u = document.getElementById('input-username').value.trim().replace(/[^a-zA-Z0-9]/g, '');
         let p = document.getElementById('input-password').value.trim();
         if(!u || !p) return showAuthError("Enter username and password!");
@@ -676,6 +854,7 @@
     };
 
     document.getElementById('btn-register').onclick = () => {
+        playButtonSound();
         let u = document.getElementById('input-username').value.trim().replace(/[^a-zA-Z0-9]/g, '');
         let p = document.getElementById('input-password').value.trim();
         if(!u || !p) return showAuthError("Enter username and password!");
@@ -707,11 +886,11 @@
         showScreen('screen-menu');
     }
 
-    document.getElementById('btn-menu-create').onclick = () => { enterFullscreen(); createRoom(); };
-    document.getElementById('btn-menu-join').onclick = () => { enterFullscreen(); showScreen('screen-join'); };
-    document.getElementById('btn-submit-join').onclick = joinRoom;
+    document.getElementById('btn-menu-create').onclick = () => { playButtonSound(); enterFullscreen(); createRoom(); };
+    document.getElementById('btn-menu-join').onclick = () => { playButtonSound(); enterFullscreen(); showScreen('screen-join'); };
+    document.getElementById('btn-submit-join').onclick = () => { playButtonSound(); joinRoom(); };
     document.getElementById('btn-leave-room').onclick = () => {
-        // ← CLEANUP: Remove listeners to prevent memory leaks
+        playButtonSound();
         if(roomRef) {
             roomRef.child('players').off('value');
             roomRef.child('gameState').off('value');
@@ -724,6 +903,7 @@
 
     // SOLO TESTING SANDBOX
     document.getElementById('btn-menu-solo').onclick = () => {
+        playButtonSound();
         enterFullscreen();
         isHost = true; 
         myRole = 'Panda';
@@ -731,15 +911,55 @@
         remoteId = null; 
         window.dbMapSeed = Math.floor(Math.random() * 99999);
         generateMap();
-        gameState = 'playing'; 
-        showScreen('ui-layer');
-        resetPositions();
-        localPlayer.role = myRole;
-        remotePlayer.isDead = true; 
-        remotePlayer.role = ""; 
-        window.serverEndTime = getSyncTime() + 600000;
-        if(!window.gameRunning) { window.gameRunning = true; lastTime = performance.now(); requestAnimationFrame(gameLoop); }
+        
+        // ← NEW: Start 15-second countdown for solo mode too!
+        startPreGameCountdown(() => {
+            gameState = 'playing'; 
+            showScreen('ui-layer');
+            resetPositions();
+            localPlayer.role = myRole;
+            remotePlayer.isDead = true; 
+            remotePlayer.role = ""; 
+            window.serverEndTime = getSyncTime() + 600000;
+            if(!window.gameRunning) { window.gameRunning = true; lastTime = performance.now(); requestAnimationFrame(gameLoop); }
+        });
     };
+
+    // ← NEW: 15-second pre-game countdown function
+    function startPreGameCountdown(callback) {
+        preGameCountdown = 15;
+        const countdownEl = document.getElementById('big-countdown');
+        const tipEl = document.getElementById('countdown-tip');
+        
+        showScreen('screen-countdown');
+        countdownEl.innerText = preGameCountdown;
+        
+        // Update tip based on role
+        if (myRole === 'Fox') {
+            tipEl.innerText = "🦊 Fox: Hide your gold & bombs! 🎯";
+        } else if (myRole === 'Panda') {
+            tipEl.innerText = "🐼 Panda: Get ready to search! 🔍";
+        }
+        
+        if (preGameTimer) clearInterval(preGameTimer);
+        
+        preGameTimer = setInterval(() => {
+            preGameCountdown--;
+            countdownEl.innerText = preGameCountdown;
+            
+            // Visual feedback on last 3 seconds
+            if (preGameCountdown <= 3) {
+                countdownEl.style.color = preGameCountdown === 1 ? '#e74c3c' : '#f39c12';
+                countdownEl.style.transform = 'scale(1.2)';
+                setTimeout(() => countdownEl.style.transform = 'scale(1)', 100);
+            }
+            
+            if (preGameCountdown <= 0) {
+                clearInterval(preGameTimer);
+                callback();
+            }
+        }, 1000);
+    }
 
     function createRoom() {
         isHost = true; myRole = 'Fox';
@@ -825,6 +1045,7 @@
     }
 
     document.getElementById('btn-copy-room').onclick = function() {
+        playButtonSound();
         let text = `Let's play Hide & Hunt!\nRoom ID: ${roomId}\nPassword: ${roomPassword}`;
         navigator.clipboard.writeText(text);
         let oldText = this.innerText; this.innerText = "COPIED!"; this.style.background = "#2ecc71"; this.style.color = "white";
@@ -832,6 +1053,7 @@
     };
 
     document.getElementById('btn-ready').onclick = () => {
+        playButtonSound();
         amIReady = !amIReady;
         roomRef.child('players/' + myId).update({ ready: amIReady });
         
@@ -841,6 +1063,7 @@
     };
 
     document.getElementById('btn-swap-roles').onclick = () => {
+        playButtonSound();
         if(!isHost || !remoteId) return;
         let newMyRole = myRole === 'Fox' ? 'Panda' : 'Fox';
         let newRemoteRole = newMyRole === 'Fox' ? 'Panda' : 'Fox';
@@ -849,6 +1072,7 @@
     };
 
     document.getElementById('btn-play-again').onclick = () => {
+        playButtonSound();
         if(!isHost) return;
         roomRef.update({ 
             gameState: 'lobby', 
@@ -864,6 +1088,13 @@
             for(let key in pData) { roomRef.child(`players/${key}`).update({ ready: false, hp: 100 }); }
         });
     };
+
+    // ← NEW: Music toggle button
+    document.getElementById('music-toggle').addEventListener('click', (e) => {
+        e.stopPropagation();
+        playButtonSound();
+        toggleMute();
+    });
 
     function setupRoomListeners() {
         roomRef.child('mapSeed').once('value', s => { window.dbMapSeed = s.val(); generateMap(); });
@@ -882,7 +1113,6 @@
                     remotePlayer.isAiming = p.isAiming || false;
                     remotePlayer.role = p.role || "";
                     if(p.aimDir) remotePlayer.aimDir = p.aimDir;
-                    // ← FIX: Sync animation frames for smooth remote player
                     if(p.frameY !== undefined) remotePlayer.frameY = p.frameY;
                     if(p.facingRight !== undefined) remotePlayer.facingRight = p.facingRight;
                     
@@ -947,9 +1177,13 @@
 
             if(isHost) {
                 if (gameState === 'lobby' && playerCount === 2 && allReady) {
-                    roomRef.update({ gameState: 'countdown', timer: getSyncTime() + 10500 });
+                    // ← Start 15-second countdown when both ready
+                    startPreGameCountdown(() => {
+                        roomRef.update({ gameState: 'hiding', timer: getSyncTime() + 60000 });
+                    });
                 } else if (gameState === 'countdown' && !allReady) {
-                    roomRef.update({ gameState: 'lobby' }); 
+                    roomRef.update({ gameState: 'lobby' });
+                    if (preGameTimer) clearInterval(preGameTimer);
                 }
             }
             updateHUD();
@@ -971,11 +1205,13 @@
                 closeOverlays();
                 showScreen('screen-lobby'); 
             }
-            else if(gameState === 'countdown') { showScreen('screen-countdown'); resetPositions(); foxInventory = { gold: 5, bombs: 2 }; foxReloading = false; }
+            else if(gameState === 'countdown') { 
+                // Countdown handled by startPreGameCountdown()
+            }
             else if(gameState === 'hiding') {
                 showScreen('ui-layer');
-                // ← FIX: Show shoot button in solo mode for Panda testing
                 const isSolo = (roomId === "SOLO");
+                // ← FIXED: Show gun button for BOTH roles in solo mode
                 const showShootBtn = (myRole === 'Fox') || (isSolo && myRole === 'Panda');
                 document.getElementById('btn-shoot').style.display = showShootBtn ? 'flex' : 'none';
                 
@@ -995,7 +1231,7 @@
             else if(gameState === 'playing') {
                 showScreen('ui-layer');
                 document.getElementById('btn-toggle-item').style.display = 'none';
-                // ← FIX: Show shoot button in solo for Panda
+                // ← FIXED: Show shoot button for Panda in solo mode
                 const isSolo = (roomId === "SOLO");
                 const showShootBtn = (myRole === 'Fox') || (isSolo && myRole === 'Panda');
                 document.getElementById('btn-shoot').style.display = showShootBtn ? 'flex' : 'none';
@@ -1019,7 +1255,6 @@
                     document.getElementById('btn-play-again').style.display = 'none';
                 }
                 
-                // ← FIX: Freeze players immediately on game end
                 localPlayer.isDead = true;
                 remotePlayer.isDead = true;
                 
@@ -1095,7 +1330,6 @@
         if(!myRole) return;
         let p1Data = myRole === 'Fox' ? localPlayer : remotePlayer;
         let p2Data = myRole === 'Panda' ? localPlayer : remotePlayer;
-        // ← FIX: Color-coded HP warning
         let p1HP = Math.max(0, p1Data.hp);
         let p1Color = p1HP > 50 ? '#2ecc71' : (p1HP > 25 ? '#f39c12' : '#e74c3c');
         let p2HP = Math.max(0, p2Data.hp);
@@ -1110,11 +1344,7 @@
         let leftMs = window.serverEndTime - getSyncTime();
         let leftSecs = Math.max(0, Math.floor(leftMs / 1000));
         
-        if (gameState === 'countdown') {
-            document.getElementById('big-countdown').innerText = leftSecs;
-            if(isHost && leftSecs <= 0 && roomId !== "SOLO") { roomRef.update({ gameState: 'hiding', timer: getSyncTime() + 60000 }); }
-            return;
-        }
+        if (gameState === 'countdown') return; // Handled by pre-game countdown
 
         let m = Math.floor(leftSecs / 60); let s = leftSecs % 60;
         document.getElementById('top-timer').innerText = `${m}:${s < 10 ? '0':''}${s}`;
@@ -1135,7 +1365,6 @@
     function autoPlace(type) {
         for(let i=0; i<worldObjects.length; i++) {
             let obj = worldObjects[i];
-            // ← UPDATED: Use validHidingContainers for auto-placement too
             if (validHidingContainers.includes(obj.type) && !mapItems[i] && i !== safeObjIndex && i !== passwordObjIndex) {
                 mapItems[i] = type; roomRef.child(`items/${i}`).set(type); return;
             }
@@ -1149,6 +1378,7 @@
     function updatePwdDisplay() { let disp = enteredPwd.padEnd(4, "_").split("").join(" "); document.getElementById('pwd-display').innerText = disp; }
 
     function submitPassword() {
+        playButtonSound();
         if(enteredPwd === safePassword) {
             closeOverlays(); showAlert("💉 HEALTH +30%!", "#2ecc71");
             if(roomId !== "SOLO") {
@@ -1161,14 +1391,15 @@
     }
 
     document.getElementById('btn-toggle-item').addEventListener('pointerdown', (e) => {
-        e.preventDefault(); placingItem = placingItem === 'gold' ? 'bomb' : 'gold';
+        e.preventDefault(); playButtonSound();
+        placingItem = placingItem === 'gold' ? 'bomb' : 'gold';
         let btn = document.getElementById('btn-toggle-item');
         if(placingItem === 'gold') { btn.innerHTML = "🟡 Place: GOLD ("+foxInventory.gold+")"; btn.style.background = "#f1c40f"; btn.style.borderColor = "#e67e22"; }
         else { btn.innerHTML = "💣 Place: BOMB ("+foxInventory.bombs+")"; btn.style.background = "#e74c3c"; btn.style.borderColor = "#c0392b"; }
     });
 
     // ==========================================
-    // PROFESSIONAL RAYCAST ENGINE
+    // PROFESSIONAL RAYCAST ENGINE (PRECISION AIMING)
     // ==========================================
     function performRaycast(shooter) {
         let gunX = shooter.x + (shooter.facingRight ? 25 : -25); 
@@ -1178,39 +1409,50 @@
         let hitY = gunY;
         let hitTarget = null; 
         let hitObjIndex = -1;
+        let closestDist = Infinity;
         
         let targetPlayer = shooter.isLocal ? remotePlayer : localPlayer;
         let maxDist = 600; 
-        let step = 2; 
+        let step = 1; // ← PRECISION: Smaller step = more accurate
         
         for (let dist = 0; dist < maxDist; dist += step) {
             hitX = gunX + shooter.aimDir.x * dist;
             hitY = gunY + shooter.aimDir.y * dist;
             
+            // ← PRECISION: Check player hitbox first (smaller tolerance)
             if (gameState === 'playing' && targetPlayer && !targetPlayer.isDead) {
-                if (hitX > targetPlayer.x - 20 && hitX < targetPlayer.x + 20 && 
-                    hitY > targetPlayer.y - 15 && hitY < targetPlayer.y + 30) {
+                if (hitX > targetPlayer.x - 15 && hitX < targetPlayer.x + 15 && 
+                    hitY > targetPlayer.y - 10 && hitY < targetPlayer.y + 25) {
                     hitTarget = 'player';
                     break;
                 }
             }
             
-            let collided = false;
+            // ← PRECISION: Check objects with tighter collision box
             for (let j = 0; j < worldObjects.length; j++) {
                 let obj = worldObjects[j];
                 if (obj.hiddenUntil && Date.now() < obj.hiddenUntil) continue;
                 
                 if (obj.isSolid || obj.isHidingSpot || decorativeSolids.includes(obj.type)) {
-                    if (hitX > obj.x && hitX < obj.x + obj.size && 
-                        hitY > obj.y + 15 && hitY < obj.y + obj.size - 10) {
-                        hitTarget = 'object';
-                        hitObjIndex = j;
-                        collided = true;
-                        break;
+                    // ← PRECISION: Use object center for better targeting
+                    let objCenterX = obj.x + obj.size/2;
+                    let objCenterY = obj.y + obj.size/2;
+                    let hitDist = Math.sqrt(Math.pow(hitX - objCenterX, 2) + Math.pow(hitY - objCenterY, 2));
+                    
+                    if (hitDist < obj.size * 0.6 && // ← Tighter hit radius
+                        hitX > obj.x + 5 && hitX < obj.x + obj.size - 5 && 
+                        hitY > obj.y + 20 && hitY < obj.y + obj.size - 10) {
+                        
+                        // ← PRECISION: Track closest hit for better accuracy
+                        if (hitDist < closestDist) {
+                            closestDist = hitDist;
+                            hitTarget = 'object';
+                            hitObjIndex = j;
+                        }
                     }
                 }
             }
-            if (collided) break;
+            if (hitTarget === 'object') break;
         }
         
         return { hitX, hitY, hitTarget, hitObjIndex, gunX, gunY };
@@ -1222,10 +1464,16 @@
         if(localPlayer.isDead || !myRole || foxReloading) return; 
         const btn = document.getElementById('btn-shoot');
         
-        if (!localPlayer.isAiming) { localPlayer.isAiming = true; btn.classList.add("aiming-mode"); return; } 
-        if (Date.now() - lastShootTime < 500) return; lastShootTime = Date.now();
+        if (!localPlayer.isAiming) { 
+            localPlayer.isAiming = true; 
+            btn.classList.add("aiming-mode"); 
+            return; 
+        } 
+        if (Date.now() - lastShootTime < 500) return; 
+        lastShootTime = Date.now();
         
-        localPlayer.isAiming = false; btn.classList.remove("aiming-mode");
+        localPlayer.isAiming = false; 
+        btn.classList.remove("aiming-mode");
         
         let ray = performRaycast(localPlayer);
 
@@ -1237,7 +1485,6 @@
         // ======= FOX MECHANICS =======
         if (myRole === 'Fox') {
             if (gameState === 'hiding') {
-                // ← UPDATED: Fox can now hide in MORE container types!
                 if(ray.hitTarget === 'object' && validHidingContainers.includes(worldObjects[ray.hitObjIndex].type)) {
                     let hitObjIndex = ray.hitObjIndex;
                     if(hitObjIndex === safeObjIndex || hitObjIndex === passwordObjIndex) { showAlert("CAN'T HIDE HERE!", "#e74c3c"); return; }
@@ -1316,7 +1563,6 @@
                     }
                 }
             } 
-            // ← NEW: Allow Panda to TEST shoot in solo mode (visual feedback only)
             else if (roomId === "SOLO" && myRole === 'Panda') {
                 showAlert(`[TEST] Hit: ${ray.hitTarget || 'empty'}`, "#3498db");
                 explosions.push({ x: ray.hitX, y: ray.hitY, radius: 10, maxRadius: 30, life: 0.8 });
@@ -1332,7 +1578,7 @@
     document.getElementById('btn-shoot').addEventListener('pointerdown', (e) => { e.preventDefault(); handleShoot(); });
 
     // ==========================================
-    // 8. RENDER PIPELINE
+    // 8. RENDER PIPELINE (FIXED SHADOWS)
     // ==========================================
     function drawWorldObjFallback(ctx, wObj, dX, dY, dSize) {
         ctx.save(); ctx.translate(dX, dY);
@@ -1397,14 +1643,16 @@
                         ctx.globalAlpha = 1.0;
                     }
 
-                    // ← FIX: Draw shadows for ALL objects (not just non-solid)
-                    ctx.fillStyle = "rgba(0,0,0,0.25)";
-                    ctx.beginPath();
-                    let shadowY = wObj.y + wObj.size - 8;
-                    let shadowRadiusX = wObj.size * 0.45;
-                    let shadowRadiusY = wObj.size * 0.12;
-                    ctx.ellipse(wObj.x + wObj.size/2, shadowY, shadowRadiusX, shadowRadiusY, 0, 0, Math.PI * 2);
-                    ctx.fill();
+                    // ← FIXED: Only draw shadows for objects NOT in noShadowObjects array
+                    if (!noShadowObjects.includes(wObj.type)) {
+                        ctx.fillStyle = "rgba(0,0,0,0.25)";
+                        ctx.beginPath();
+                        let shadowY = wObj.y + wObj.size - 8;
+                        let shadowRadiusX = wObj.size * 0.45;
+                        let shadowRadiusY = wObj.size * 0.12;
+                        ctx.ellipse(wObj.x + wObj.size/2, shadowY, shadowRadiusX, shadowRadiusY, 0, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
 
                     let dSize = wObj.size; let dX = wObj.x; let dY = wObj.y;
                     
@@ -1487,14 +1735,25 @@
                     ctx.stroke();
                     ctx.setLineDash([]); 
 
+                    // ← PRECISION: Draw hit marker exactly at impact point
                     if (ray.hitTarget !== null) {
                         ctx.shadowBlur = 15; 
                         ctx.shadowColor = impactColor;
                         
                         ctx.beginPath();
-                        ctx.arc(ray.hitX, ray.hitY, 4 + Math.random() * 3, 0, Math.PI * 2); 
+                        ctx.arc(ray.hitX, ray.hitY, 5 + Math.random() * 2, 0, Math.PI * 2); 
                         ctx.fillStyle = "#ffffff";
                         ctx.fill();
+                        
+                        // ← PRECISION: Draw crosshair for perfect aiming feedback
+                        ctx.beginPath();
+                        ctx.moveTo(ray.hitX - 8, ray.hitY);
+                        ctx.lineTo(ray.hitX + 8, ray.hitY);
+                        ctx.moveTo(ray.hitX, ray.hitY - 8);
+                        ctx.lineTo(ray.hitX, ray.hitY + 8);
+                        ctx.strokeStyle = "#fff";
+                        ctx.lineWidth = 2;
+                        ctx.stroke();
                     }
 
                     ctx.restore();
@@ -1519,7 +1778,6 @@
                 damageFlash -= dt * 1.5; 
             }
             
-            // ← DEBUG MODE (toggle with window.DEBUG = true)
             if(window.DEBUG) {
                 ctx.save();
                 ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -1527,7 +1785,6 @@
                 ctx.font = '14px monospace';
                 ctx.fillText(`FPS: ${Math.round(1/dt)} | Objects: ${worldObjects.length}`, 10, 30);
                 ctx.fillText(`Ver: ${GAME_VERSION}`, 10, 50);
-                // Draw collision box for local player
                 ctx.strokeStyle = 'red';
                 ctx.strokeRect(localPlayer.x-15, localPlayer.y+10, 30, 25);
                 ctx.restore();
@@ -1536,6 +1793,11 @@
         
         requestAnimationFrame(gameLoop);
     }
+
+    // ← Initialize button sounds on page load
+    window.addEventListener('load', () => {
+        addButtonSounds();
+    });
 </script>
 </body>
-                        </html>
+    </html>
