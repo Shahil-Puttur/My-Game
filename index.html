@@ -79,8 +79,8 @@
         #big-countdown { font-size: 130px; color: #f1c40f; -webkit-text-stroke: 4px #000; text-shadow: 0 12px 0 #000; font-weight: 900; margin-top: 20px;}
 
         /* KEYPAD & PAPER UI */
-        .keypad-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 10px; }
-        .key-btn { background: #34495e; color: #fff; font-size: 22px; font-weight: bold; border: none; border-radius: 8px; padding: 14px; cursor: pointer; box-shadow: 0 5px 0 #2c3e50; transition: transform 0.1s; }
+        .keypad-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 5px; }
+        .key-btn { background: #34495e; color: #fff; font-size: 22px; font-weight: bold; border: none; border-radius: 8px; padding: 12px; cursor: pointer; box-shadow: 0 5px 0 #2c3e50; transition: transform 0.1s; }
         .key-btn:active { transform: translateY(5px); box-shadow: none; }
         .key-btn-red { background: #e74c3c; box-shadow: 0 5px 0 #c0392b; }
         .key-btn-green { background: #2ecc71; box-shadow: 0 5px 0 #27ae60; }
@@ -241,11 +241,20 @@
         <button class="main-btn btn-blue" style="margin-top: 40px; width: 220px;" onclick="closeOverlays()">Close</button>
     </div>
 
-    <!-- KEYPAD OVERLAY -->
+    <!-- NEW COMPACT KEYPAD OVERLAY WITH TOP CONTROLS -->
     <div id="screen-keypad" class="full-screen bg-dark" style="z-index: 150;">
-        <div class="setup-box" style="background: #95a5a6; border-color: #7f8c8d; max-height: 95vh;">
-            <h2 style="color: white; font-size: 28px;">UNLOCK SAFE</h2>
-            <div id="pwd-display">_ _ _ _</div>
+        <div class="setup-box" style="background: #95a5a6; border-color: #7f8c8d; max-height: 98vh; padding: 15px; width: 90%; max-width: 350px;">
+            
+            <!-- TOP CONTROLS: CANCEL & DONE -->
+            <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                <button class="main-btn btn-red" style="flex: 1; padding: 10px; font-size: 16px;" onclick="closeOverlays()">CANCEL</button>
+                <button class="main-btn btn-green" style="flex: 1; padding: 10px; font-size: 16px;" onclick="submitPassword()">DONE</button>
+            </div>
+
+            <h2 style="color: white; font-size: 24px; margin-bottom: 5px;">UNLOCK SAFE</h2>
+            <div id="pwd-display" style="height: 50px; font-size: 30px; margin-bottom: 5px;">_ _ _ _</div>
+            
+            <!-- KEYPAD GRID -->
             <div class="keypad-grid">
                 <button class="key-btn" onclick="pressKey(1)">1</button>
                 <button class="key-btn" onclick="pressKey(2)">2</button>
@@ -257,10 +266,8 @@
                 <button class="key-btn" onclick="pressKey(8)">8</button>
                 <button class="key-btn" onclick="pressKey(9)">9</button>
                 <button class="key-btn key-btn-red" onclick="pressKey('C')">C</button>
-                <button class="key-btn" onclick="pressKey(0)">0</button>
-                <button class="key-btn key-btn-green" onclick="submitPassword()">OK</button>
+                <button class="key-btn" style="grid-column: span 2;" onclick="pressKey(0)">0</button>
             </div>
-            <button class="main-btn btn-gray" style="margin-top: 15px; width: 100%; font-size: 18px;" onclick="closeOverlays()">Cancel / Hide Keypad</button>
         </div>
     </div>
     
@@ -1130,6 +1137,7 @@
     
     function closeOverlays() { document.getElementById('screen-paper').style.display = 'none'; document.getElementById('screen-keypad').style.display = 'none'; }
     function showPaper() { document.getElementById('paper-pwd-text').innerText = safePassword; document.getElementById('screen-paper').style.display = 'flex'; }
+    
     function showKeypad() { 
         enteredPwd = ""; 
         let pwdDisp = document.getElementById('pwd-display');
@@ -1137,10 +1145,27 @@
         updatePwdDisplay(); 
         document.getElementById('screen-keypad').style.display = 'flex'; 
     }
-    function pressKey(k) { if(k === 'C') enteredPwd = ""; else if (enteredPwd.length < 4) enteredPwd += k.toString(); updatePwdDisplay(); }
+    
+    function pressKey(k) { 
+        if(k === 'C') {
+            enteredPwd = ""; 
+            updatePwdDisplay();
+        } else if (enteredPwd.length < 4) { 
+            enteredPwd += k.toString(); 
+            updatePwdDisplay(); 
+            
+            // Auto Submit on exact 4th digit
+            if (enteredPwd.length === 4) {
+                setTimeout(submitPassword, 150); // slight delay to show the number first
+            }
+        } 
+    }
+    
     function updatePwdDisplay() { document.getElementById('pwd-display').innerText = enteredPwd.padEnd(4, "_").split("").join(" "); }
 
     function submitPassword() {
+        if(enteredPwd.length === 0) return; // Prevent accidental empty submissions
+        
         if(enteredPwd === safePassword) { 
             closeOverlays(); 
             showAlert("💉 HEALTH +30%!", "#2ecc71"); 
@@ -1150,9 +1175,13 @@
         else { 
             let pwdDisp = document.getElementById('pwd-display');
             pwdDisp.innerText = "WRONG!"; pwdDisp.style.color = "#e74c3c"; pwdDisp.style.borderColor = "#e74c3c"; pwdDisp.style.background = "#f2dede";
+            showAlert("INCORRECT CODE!", "#e74c3c");
+            
+            // Force close keypad if wrong, forcing them to shoot it again!
             setTimeout(() => {
                 enteredPwd = ""; pwdDisp.style.color = "#2c3e50"; pwdDisp.style.borderColor = "#bdc3c7"; pwdDisp.style.background = "#ecf0f1"; updatePwdDisplay();
-            }, 1000);
+                closeOverlays();
+            }, 800);
         }
     }
 
